@@ -1,0 +1,55 @@
+- name: Check if zabbix directory exists
+  ansible.builtin.stat:
+    path: /etc/zabbix
+  register: zabbix_dir
+
+- block:
+
+  - name: Download zabbix release package
+    ansible.builtin.get_url:
+      url: https://repo.zabbix.com/zabbix/6.4/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.4-1+ubuntu22.04_all.deb
+      dest: /tmp/zabbix-release_6.4-1+ubuntu22.04_all.deb
+      mode: '0644'
+
+  - name: Install zabbix release package
+    ansible.builtin.apt:
+      deb: /tmp/zabbix-release_6.4-1+ubuntu22.04_all.deb
+
+  - name: Update apt cache
+    ansible.builtin.apt:
+      update_cache: true
+
+  - name: Update apt and install zabbix-agent2 and plugins
+    ansible.builtin.apt:
+      name:
+        - zabbix-agent2
+        - zabbix-agent2-plugin-*
+      state: present
+
+  # - name: Install zabbix-agent2
+  #   ansible.builtin.apt:
+  #     name: zabbix-agent2
+  #     state: present
+  #     allow_unauthenticated: true
+
+  # - name: Attempt to install zabbix-agent2 plugins
+  #   ansible.builtin.apt:
+  #     name: zabbix-agent2-plugin-*
+  #     state: present
+  #     allow_unauthenticated: true
+  #   ignore_errors: true
+
+  - name: Copy zabbix configuration file
+    ansible.builtin.template:
+      dest: "/etc/zabbix/zabbix_agent2.conf"
+      src: "{{ playbook_dir }}/templates/zabbix-zabbix_agentd.conf.j2"
+      force: true
+      mode: '0644'
+
+  - name: Restart zabbix-agent2 service
+    ansible.builtin.systemd:
+      name: zabbix-agent2
+      state: restarted
+      enabled: true
+
+  when: not zabbix_dir.stat.exists

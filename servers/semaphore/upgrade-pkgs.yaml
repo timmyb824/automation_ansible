@@ -1,0 +1,35 @@
+---
+- name: Upgrade packages via apt or yum depending on distro
+  hosts: all
+
+  tasks:
+    - name: Upgrade apt packages
+      become: true
+      ansible.builtin.apt:
+        upgrade: true
+        update_cache: true
+        cache_valid_time: 3600
+      notify: Send notification to Gotify
+      when: ansible_distribution in ["Ubuntu", "Debian"]
+      tags: apt
+
+    - name: Upgrade yum packages
+      become: true
+      ansible.builtin.yum:
+        update_cache: true
+        name: '*'
+        state: latest
+      notify: Send notification to Gotify
+      when: ansible_distribution in ["Amazon", "CentOS", "OracleLinux"]
+      tags: yum
+
+  handlers:
+    - name: Send notification to Gotify
+      ansible.builtin.uri:
+        url: "https://gotify.timmybtech.com/message?token={{ gotify_token }}"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          title: "Ansible Upgrade"
+          message: "{{ ansible_distribution }} packages have been upgraded on {{ ansible_hostname }}"
+          priority: "5"

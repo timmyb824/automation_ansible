@@ -1,0 +1,63 @@
+- name: Check if prometheus directory exists
+  ansible.builtin.stat:
+    path: /home/{{ instance_owner }}/prometheus
+  register: prometheus_dir
+
+- block:
+
+  - name: Create prometheus directory
+    ansible.builtin.file:
+      path: /home/{{ instance_owner }}/prometheus
+      state: directory
+      mode: '0644'
+
+  - name: Set ownership and permissions for the app directory
+    ansible.builtin.file:
+      path: "/home/{{ instance_owner }}/prometheus/"
+      owner: "{{ instance_owner }}"
+      group: "{{ instance_owner }}"
+      mode: '0755'
+
+  - name: Copy prometheus configuration file
+    ansible.builtin.template:
+      dest: "/home/{{ instance_owner }}/prometheus/prometheus.yml"
+      src: "{{ playbook_dir }}/templates/prometheus-prometheus-yml.j2"
+      force: true
+      mode: '0644'
+
+  - name: Copy docker-compose file
+    ansible.builtin.template:
+      dest: "/home/{{ instance_owner }}/prometheus/docker-compose.yaml"
+      src: "{{ playbook_dir }}/templates/prometheus-docker-compose-yml.j2"
+      force: true
+      mode: '0644'
+
+  - name: Create docker network and volume
+    ansible.builtin.shell: "{{ item.cmd }}"
+    with_items:
+      - cmd: 'docker network create prometheus'
+      - cmd: 'docker volume create prometheus_data'
+
+  - name: Check is docker-compose installed
+    ansible.builtin.shell: command -v docker-compose >/dev/null 2>&1
+    register: is_docker_compose_install
+    ignore_errors: true
+
+  - ansible.builtin.debug: msg="{{ is_docker_compose_install.rc }}" # it returns rc 0 if installed or 127 if not
+  - ansible.builtin.debug: var=is_docker_compose_install
+
+  - name: Create docker container with docker-compose
+    ansible.builtin.shell: docker-compose up -d --force-recreate
+    ignore_errors: true
+    when: is_docker_compose_install.rc == 0
+    args:
+      chdir: '/home/{{ instance_owner }}/prometheus/'
+
+  - name: Create docker container with docker compose
+    ansible.builtin.shell: docker compose up -d --force-recreate
+    ignore_errors: true
+    when: is_docker_compose_install.rc != 0
+    args:
+      chdir: '/home/{{ instance_owner }}/prometheus/'
+
+  when: not prometheus_dir.stat.exists

@@ -1,0 +1,63 @@
+---
+## Loki for Docker
+- name: Check if Loki Docker driver plugin is installed
+  ansible.builtin.command:
+    cmd: docker plugin inspect loki
+  register: plugin_inspect_result
+  changed_when: false
+  failed_when: false
+
+- name: Install Loki Docker driver plugin
+  ansible.builtin.command:
+    cmd: docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
+  when: plugin_inspect_result.rc != 0
+  ignore_errors: true
+
+- name: Check if loki plugin is enabled
+  ansible.builtin.command: docker plugin ls --format '{{ "{{.Name}}:{{.Enabled}}" }}'
+  register: plugin_list
+  changed_when: false
+
+- name: Set plugin enabled status
+  ansible.builtin.set_fact:
+    loki_plugin_enabled: "{{ 'loki:latest:true' in plugin_list.stdout_lines }}"
+
+- name: Debug plugin enabled status
+  ansible.builtin.debug:
+    var: loki_plugin_enabled
+
+- name: Enable loki plugin
+  ansible.builtin.command: docker plugin enable loki
+  when: not loki_plugin_enabled
+
+- name: Check if daemon.json exists
+  ansible.builtin.stat:
+    path: "/etc/docker/daemon.json"
+  register: daemon_stat
+
+- name: If daemon.json does exist then back it up with timestamp
+  ansible.builtin.copy:
+    src: "/etc/docker/daemon.json"
+    dest: "/etc/docker/daemon.json.old.{{ ansible_date_time.date }}"
+    remote_src: true
+  when: daemon_stat.stat.exists
+  register: backup_result
+
+- name: Copy daemon.json file to /etc/docker
+  ansible.builtin.template:
+    dest: "/etc/docker/daemon.json"
+    src: "{{ lookup('env', 'PWD') }}/templates/docker-daemon.json.j2"
+    mode: '0644'
+  when: not daemon_stat.stat.exists or backup_result.changed
+
+- name: Reload Docker daemon
+  ansible.builtin.service:
+    name: docker
+    state: reloaded
+  when: not daemon_stat.stat.exists or backup_result.changed
+
+- name: Restart Docker
+  ansible.builtin.service:
+    name: docker
+    state: restarted
+  when: not daemon_stat.stat.exists or backup_result.changed

@@ -1,0 +1,107 @@
+- name: Common Playbook
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    update_pkgs: true
+    create_users: true
+    docker_install: false
+    tailscale_install: true
+    pyenv_install: true
+    nvm_install: true
+    zabbix_agent2_install: true
+    loki_docker_install: false
+    loki_syslog_install: false
+    prometheus_stack: false
+    extra_pkgs: true
+    promtail_install: false
+
+  vars_files:
+    - ./vars/common.yaml
+
+  pre_tasks:
+    - name: Include update packages
+      ansible.builtin.import_tasks: "./tasks/update_pkgs.yaml"
+      when: update_pkgs | default(false)
+
+    - name: Create new users
+      ansible.builtin.import_tasks: "./tasks/new_users.yaml"
+      when: create_users | default(false)
+
+  roles:
+    # https://github.com/artis3n/ansible-role-tailscale
+    - role: artis3n.tailscale
+      vars:
+        tailscale_authkey: "{{ lookup('env', 'TAILSCALE_AUTHKEY') }}"
+        insecurely_log_authkey: true # for help with debugging tailscale up
+        tailscale_args: "--accept-routes" # use on linux to access subnet routing; --accept-dns=false to disable dns
+        # state: absent # use to remove tailscale
+      when: tailscale_install | default(false)
+
+    # https://github.com/staticdev/ansible-role-pyenv
+    - role: staticdev.pyenv
+      vars:
+        pyenv_version: "HEAD"
+        pyenv_env: "user"
+        pyenv_shellrc_file: "/home/{{ instance_owner }}/.bashrc"
+        pyenv_path: "/home/{{ instance_owner }}/.pyenv"
+        pyenvrc_path: "/home/{{ instance_owner }}"
+        pyenv_owner: "{{ instance_owner }}"
+        pyenv_global:
+          - 3.11.0
+        pyenv_enable_autocompletion: false
+        pyenv_python_versions:
+          - 3.11.0
+        pyenv_virtualenvs:
+          - venv_name: homelab
+            py_version: 3.11.0
+      when: pyenv_install | default(false)
+
+    # https://github.com/geerlingguy/ansible-role-docker
+    - role: geerlingguy.docker
+      vars:
+        docker_users:
+          - "{{ instance_owner }}"
+      when: docker_install | default(false)
+
+    # https://github.com/stephdewit/ansible-nvm
+    - role: stephdewit.nvm
+      vars:
+        nvm_version: 'latest'
+        nvm_node_version: 'latest'
+        nvm_install_path: "/home/{{ instance_owner }}/.nvm"
+        nvm_shell_init_file: "/home/{{ instance_owner }}/.bashrc"
+      environment:
+        NVM_DIR: /home/{{ instance_owner }}/.nvm
+      when: nvm_install | default(false)
+
+  tasks:
+    - name: Pause to let memory clear
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Include loki_docker logging tasks
+      ansible.builtin.import_tasks: "./tasks/loki_docker_logs.yaml"
+      when: loki_docker_install | default(false)
+
+    - name: Include loki_syslog logging tasks
+      ansible.builtin.import_tasks: "./tasks/loki_syslog_logs.yaml"
+      when: loki_syslog_install | default(false)
+
+    - name: Install prometheus stack
+      ansible.builtin.import_tasks: "./tasks/prometheus_stack.yaml"
+      when: prometheus_stack | default(false)
+
+    # temp solution until I can figure out how to get the zabbix_agent role to work
+    - name: Install zabbix agent 2
+      ansible.builtin.import_tasks: "./tasks/zabbix_agent2.yaml"
+      when: zabbix_agent2_install | default(false)
+
+    - name: Install promtail
+      ansible.builtin.import_tasks: "./tasks/promtail.yaml"
+      when: promtail_install | default(false)
+
+    - name: Install extra packages
+      ansible.builtin.import_tasks: "./tasks/extra_pkgs.yaml"
+      when: extra_pkgs | default(false)

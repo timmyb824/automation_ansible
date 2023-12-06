@@ -1,0 +1,26 @@
+- name: Install firewalld
+  ansible.builtin.apt:
+    name: firewalld
+    state: present
+  become: true
+
+- name: Start and enable firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+  become: true
+
+- name: Open ports 80, 443, 5001, 10050, 10051, 9080
+  ansible.posix.firewalld:
+    zone: public
+    port: "{{ item }}/tcp"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: [80, 443, 5001, 10050, 10051, 9080]
+  become: true
+
+- name: Reload firewalld
+  ansible.builtin.command: firewall-cmd --reload
+  become: true

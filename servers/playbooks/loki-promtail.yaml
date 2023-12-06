@@ -1,0 +1,42 @@
+- name: Install and configure Loki and Promtail
+  hosts: adhoc
+  become: true
+  gather_facts: true
+
+  vars:
+    promtail_config_dir: /home/{{ ansible_user}}/promtail
+    loki_url: "{{ lookup('env','LOKI_ADDRESS') }}"
+    docker_install: true
+    tailscale_install: true
+    loki_docker_install: true
+    loki_syslog_install: true
+
+  pre_tasks:
+    - name: Include update packages
+      ansible.builtin.import_tasks: "../tasks/update_pkgs.yaml"
+
+  # Loki-promtail on an external server requires docker and tailscale (for private networking)
+  roles:
+    # https://github.com/artis3n/ansible-role-tailscale
+    - role: artis3n.tailscale
+      vars:
+        tailscale_authkey: "{{ lookup('env', 'TAILSCALE_AUTHKEY') }}"
+        insecurely_log_authkey: true # for help with debugging tailscale up
+        # tailscale_args: "--accept-routes" # use on linux to access subnet routing
+      when: tailscale_install | default(false)
+
+    # https://github.com/geerlingguy/ansible-role-docker
+    - role: geerlingguy.docker
+      vars:
+        docker_users:
+          - "{{ ansible_user }}"
+      when: docker_install | default(false)
+
+  tasks:
+    - name: Include loki_docker logging tasks
+      ansible.builtin.import_tasks: "../tasks/loki_docker_logs.yaml"
+      when: loki_docker_install | default(false)
+
+    - name: Include loki_syslog logging tasks
+      ansible.builtin.import_tasks: "../tasks/loki_syslog_logs.yaml"
+      when: loki_syslog_install | default(false)

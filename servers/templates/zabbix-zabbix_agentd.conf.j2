@@ -1,0 +1,53 @@
+# This is a configuration file for Zabbix agent 2 (Unix)
+# To get more information about Zabbix, visit http://www.zabbix.com
+
+PidFile=/var/run/zabbix/zabbix_agent2.pid
+LogFile=/var/log/zabbix/zabbix_agent2.log
+LogFileSize=0
+# SourceIP=
+Server={{ zabbix_server_ip }}
+# ListenPort=10050
+# ListenIP=0.0.0.0
+StatusPort=9999
+ServerActive={{ zabbix_server_ip }}
+Hostname={{ hostname }}
+# HostnameItem=system.hostname
+# HostMetadata=
+# HostMetadataItem=
+# HostInterface=
+# HostInterfaceItem=
+# RefreshActiveChecks=120
+# BufferSend=5
+# BufferSize=100
+# EnablePersistentBuffer=0
+# PersistentBufferPeriod=1h
+# PersistentBufferFile=
+# HeartbeatFrequency=
+Include=/etc/zabbix/zabbix_agent2.d/*.conf
+# Include=/usr/local/etc/zabbix_agent2.userparams.conf
+# Include=/usr/local/etc/zabbix_agent2.conf.d/
+# Include=/usr/local/etc/zabbix_agent2.conf.d/*.conf
+# PluginTimeout=
+# PluginSocket=
+# UnsafeUserParameters=0
+# UserParameter=
+# UserParameterDir=
+# ControlSocket=
+ControlSocket=/tmp/agent.sock
+# TLSConnect=unencrypted
+# TLSAccept=unencrypted
+# TLSCAFile=
+# TLSCRLFile=
+# TLSServerCertIssuer=
+# TLSServerCertSubject=
+# TLSCertFile=
+# TLSKeyFile=
+# TLSPSKIdentity=
+# TLSPSKFile=
+# Plugins.Log.MaxLinesPerSecond=20
+AllowKey=system.run[*,*]
+# DenyKey=system.run[*]
+# Plugins.SystemRun.LogRemoteCommands=0
+# ForceActiveChecksOnStart=0
+# Include configuration files for plugins
+Include=./zabbix_agent2.d/plugins.d/*.conf

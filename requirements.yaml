@@ -1,0 +1,18 @@
+---
+collections:
+  - name: community.zabbix
+    version: 2.0.0
+  - name: ansible.posix
+    version: 1.3.0
+  - name: community.general
+    version: 3.7.0
+  - name: newrelic.newrelic_agents
+    version: 1.0.4
+
+roles:
+  - src: artis3n.tailscale
+  - src: staticdev.pyenv
+  - src: geerlingguy.docker
+  - src: stephdewit.nvm
+  - src: avanov.pyenv
+  - src: patrickjahns.promtail

@@ -1,0 +1,37 @@
+- name: Install nice to have packages
+  hosts: all
+  gather_facts: true
+
+  tasks:
+    - name: Install extra apt packages
+      become: true
+      ansible.builtin.apt:
+        name:
+          - htop
+          - jq
+          - bat
+          # - cpu-checker
+          - magic-wormhole
+          - tree
+          - ripgrep
+          - neofetch
+          - git
+          - traceroute
+      when:
+        - ansible_distribution == "Ubuntu" or ansible_distribution == "Debian"
+
+    - name: Install extra packages with yum
+      become: true
+      ansible.builtin.yum:
+        name:
+          - htop
+          - jq
+          - bat
+          - magic-wormhole
+          - tree
+          - ripgrep
+          - git
+          - traceroute
+        state: present
+      when:
+        - when ansible_distribution == "CentOS" ansible_distribution == "RedHat" and ansible_distribution == "Fedora" and ansible_distribution == "OracleLinux"

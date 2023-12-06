@@ -1,0 +1,71 @@
+---
+- name: Check if directory exists
+  ansible.builtin.stat:
+    path: "{{ promtail_config_dir }}"
+  register: dir_stat
+
+- name: Create directory if it doesn't exist
+  ansible.builtin.file:
+    path: "{{ promtail_config_dir }}"
+    state: directory
+    mode: '0755'
+  when: not dir_stat.stat.exists
+
+- name: Set ownership and permissions for the app directory
+  ansible.builtin.file:
+    path: "{{ promtail_config_dir }}"
+    owner: "{{ instance_owner }}"
+    group: "{{ instance_owner }}"
+    mode: '0755'
+
+- name: Promtail configuration file
+  ansible.builtin.template:
+    dest: "{{ promtail_config_dir }}/promtail-config.yaml"
+    src: "{{ lookup('env', 'PWD') }}/templates/promtail-config.yaml.j2"
+    mode: '0644'
+  register: promtail_configuration
+
+- name: Promtail docker-compose file
+  ansible.builtin.template:
+    dest: "{{ promtail_config_dir }}/docker-compose.yaml"
+    src: "{{ lookup('env', 'PWD') }}/templates/promtail-docker-compose.yaml.j2"
+    mode: '0644'
+  register: docker_compose_configuration
+
+- name: Set ownership and permissions for the app directory
+  ansible.builtin.file:
+    path: "{{ promtail_config_dir }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+    recurse: true
+
+# for older installs of docker-compose
+- name: Check is docker-compose installed
+  ansible.builtin.shell: command -v docker-compose >/dev/null 2>&1
+  register: is_docker_compose_install
+  ignore_errors: true
+  changed_when: false
+
+- name: Debug docker-compose install
+  # ansible.builtin.debug: msg="{{ is_docker_compose_install.rc }}" # it returns rc 0 if installed or 127 if not
+  ansible.builtin.debug:
+    msg: "{{ is_docker_compose_install.rc }}"
+
+- name: Debug docker-compose install
+  ansible.builtin.debug:
+    var: is_docker_compose_install
+
+- name: Create docker container with docker-compose
+  ansible.builtin.shell: docker-compose up -d --force-recreate
+  ignore_errors: true
+  when: is_docker_compose_install.rc == 0
+  args:
+    chdir: "{{ promtail_config_dir }}"
+
+- name: Create docker container with docker compose
+  ansible.builtin.shell: docker compose up -d --force-recreate
+  ignore_errors: true
+  when: is_docker_compose_install.rc != 0
+  args:
+    chdir: "{{ promtail_config_dir }}"

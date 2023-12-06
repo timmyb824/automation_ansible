@@ -1,0 +1,4 @@
+*.DS_Store*
+
+servers/secrets/SECRETS.md
+servers/Archive/

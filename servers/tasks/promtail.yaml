@@ -1,0 +1,58 @@
+---
+- name: Check if /etc/promtail exists
+  ansible.builtin.stat:
+    path: /etc/promtail
+  register: promtail
+
+- name: Download and install promtail
+  become: true
+  block:
+
+    - name: Check if curl is installed
+      ansible.builtin.command: which curl
+      ignore_errors: true
+      register: curl_status
+
+    - name: Install curl if not exists
+      ansible.builtin.apt:
+        name: curl
+        state: present
+      when: curl_status.rc != 0
+
+    - name: Download promtail
+      ansible.builtin.get_url:
+        url: https://github.com/grafana/loki/releases/download/v2.8.2/promtail_2.8.2_amd64.deb
+        dest: /tmp/promtail_2.8.2_amd64.deb
+      when: promtail.stat.exists == False
+
+    - name: Install promtail
+      ansible.builtin.apt:
+        deb: /tmp/promtail_2.8.2_amd64.deb
+      when: promtail.stat.exists == False
+
+    - name: Install dependencies with apt
+      ansible.builtin.apt:
+        name:
+          - libsystemd0
+        state: present
+      when: promtail.stat.exists == False
+
+    - name: Add promtail to adm group
+      ansible.builtin.user:
+        name: promtail
+        append: true
+        groups: adm
+      when: promtail.stat.exists == False
+
+    - name: Copy over config.yml to /etc/promtail
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/templates/promtail-config.yml.j2"
+        dest: /etc/promtail/config.yml
+      when: promtail.stat.exists == False
+
+    - name: Restart promtail service
+      ansible.builtin.systemd:
+        name: promtail
+        state: restarted
+        enabled: true
+      when: promtail.stat.exists == False

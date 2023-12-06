@@ -1,0 +1,19 @@
+---
+- name: Add SSH Key to Servers
+  hosts: all
+  become: true
+
+  vars:
+    users:
+      - "{{ SSH_USER}}"
+      - "{{ SSH_REMOTE_USER }}"
+      - opc
+      - ubuntu
+
+  tasks:
+    - name: Add SSH public key to multiple users
+      ansible.posix.authorized_key:
+        user: "{{ item }}"
+        state: present
+        key: "{{ lookup('file', '~/.ssh/id_master_key_nopass.pub') }}"
+      loop: "{{ users }}"

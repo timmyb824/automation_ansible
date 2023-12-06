@@ -1,0 +1,15 @@
+ssh_user: "{{ lookup('env', 'SSH_USER') }}"
+ssh_remote_user: "{{ lookup('env', 'SSH_REMOTE_USER') }}"
+instance_owner: "{{ lookup('env', 'USER') }}" #"{{ 'ubuntu' if ansible_distribution == 'Ubuntu' else 'tbryant' }}"
+ssh_key: "{{ lookup('file', '~/.ssh/id_master_key.pub') }}"
+hostname: "{{ inventory_hostname }}"
+ssh_password_hashed: "{{ lookup('env', 'SSH_PASSWORD_HASHED') }}"
+# ssh_password_encrypted: !vault |
+#           $ANSIBLE_VAULT;1.1;AES256
+#           38633431326533363136323031663766666164353432373661373736323237356661363832626435
+#           6337313562353034613532303138643736623733363963350a366138636135626162303337663366
+#           32663632646366363231326262633864326339313532613665636637336434656264643266356631
+#           3161373037313934610a666537643665306462333138636631396632306164376138326663613961
+#           3832
+zabbix_server_ip: "192.168.86.202" # 202=proxy, 203=server
+promtail_config_dir: /home/{{ instance_owner }}/promtail
