@@ -1,7 +1,7 @@
 #!/Users/timothybryant/.local/bin/bash
 
 # Path to your .envrc file
-ENVRC_PATH="../.envrc"
+ENVRC_PATH="$HOME/DEV/homelab/automation_ansible/.envrc"
 
 # Check if .envrc file exists
 if [ ! -f "$ENVRC_PATH" ]; then
@@ -10,7 +10,7 @@ if [ ! -f "$ENVRC_PATH" ]; then
 fi
 
 # Check if the word "AES256" is in the .envrc file
-if ! grep -q "AES256_GCM" "$ENVRC_PATH"; then
+if grep -q "AES256_GCM" "$ENVRC_PATH"; then
   echo ".envrc file is encrypted."
   exit 0
 else
