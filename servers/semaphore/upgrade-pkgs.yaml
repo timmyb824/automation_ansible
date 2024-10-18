@@ -36,7 +36,7 @@
 
     - name: Send notification to ntfy
       ansible.builtin.uri:
-        url: "https://notify.timmybtech.com/{{ ntfy_topic }}?auth={{ ntfy_token }}"
+        url: "https://ntfy.timmybtech.com/{{ ntfy_topic }}?auth={{ ntfy_token }}"
         method: POST
         body_format: form-urlencoded
         body:
