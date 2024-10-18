@@ -8,7 +8,7 @@
       ansible.builtin.apt:
         update_cache: true
         cache_valid_time: 3600
-      notify: Send notification to Gotify
+      notify: Send notification to ntfy
       when: ansible_distribution in ["Debian", "Ubuntu"]
       tags: apt
 
@@ -16,7 +16,7 @@
       become: true
       ansible.builtin.yum:
         update_cache: true
-      notify: Send notification to Gotify
+      notify: Send notification to ntfy
       when: ansible_distribution in ["Amazon", "CentOS", "OracleLinux"]
       tags: yum
 
@@ -31,7 +31,7 @@
     #       message: "{{ ansible_distribution }} packages have been updated on {{ ansible_hostname }}"
     #       priority: "5"
 
-    - name: Send notification to notify
+    - name: Send notification to ntfy
       ansible.builtin.uri:
         url: "https://notify.timmybtech.com/{{ ntfy_topic }}?auth={{ ntfy_token }}"
         method: POST
