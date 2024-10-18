@@ -21,12 +21,21 @@
       tags: yum
 
   handlers:
-    - name: Send notification to Gotify
+    # - name: Send notification to Gotify
+    #   ansible.builtin.uri:
+    #     url: "https://gotify.timmybtech.com/message?token={{ gotify_token }}"
+    #     method: POST
+    #     body_format: form-urlencoded
+    #     body:
+    #       title: "Ansible Update"
+    #       message: "{{ ansible_distribution }} packages have been updated on {{ ansible_hostname }}"
+    #       priority: "5"
+
+    - name: Send notification to notify
       ansible.builtin.uri:
-        url: "https://gotify.timmybtech.com/message?token={{ gotify_token }}"
+        url: "https://notify.timmybtech.com/{{ ntfy_topic }}?auth={{ ntfy_token }}"
         method: POST
         body_format: form-urlencoded
         body:
           title: "Ansible Update"
           message: "{{ ansible_distribution }} packages have been updated on {{ ansible_hostname }}"
-          priority: "5"
