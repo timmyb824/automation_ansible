@@ -40,5 +40,4 @@
         method: POST
         body_format: form-urlencoded
         body:
-          title: "Ansible Update"
-          message: "{{ ansible_distribution }} packages have been updated on {{ ansible_hostname }}"
+          "Ansible Update": "{{ ansible_distribution }} packages have been upgraded on {{ ansible_hostname }}"
