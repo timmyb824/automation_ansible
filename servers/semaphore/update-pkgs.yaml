@@ -35,6 +35,6 @@
       ansible.builtin.uri:
         url: "https://ntfy.timmybtech.com/{{ ntfy_topic }}?auth={{ ntfy_token }}"
         method: POST
-        body_format: form-urlencoded
-        body:
-          "Ansible Update": "{{ ansible_distribution }} packages have been updated on {{ ansible_hostname }}"
+        headers:
+          X-Title: "Ansible Update"
+        body: "{{ ansible_distribution }} packages have been updated on {{ ansible_hostname }}"
