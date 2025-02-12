@@ -6,10 +6,10 @@
     - user: "{{ lookup('env','SSH_USER') }}"
     - ssh_remote_user: "{{ lookup('env','SSH_REMOTE_USER') }}"
     - ssh_key: "{{ lookup('file', '~/.ssh/id_master_key.pub') }}"
-  # created with:
-  # python -c 'import crypt; print(crypt.crypt("password", "45678Hello23453SomeSalt"))'
-  # above command requires the PassLib library: pip install passlib
-  # will throw a wanrning that password must be encrypted not hashed
+    # created with:
+    # python -c 'import crypt; print(crypt.crypt("password", "45678Hello23453SomeSalt"))'
+    # above command requires the PassLib library: pip install passlib
+    # will throw a wanrning that password must be encrypted not hashed
     - SSH_PASSWORD_HASHED: "{{ lookup('env','SSH_PASSWORD_HASHED') }}"
 
   tasks:
@@ -60,6 +60,6 @@
       when: ssh_remote_user is defined and not sudoers_file.stat.exists
       ansible.builtin.lineinfile:
         path: /etc/sudoers.d/{{ ssh_remote_user }}
-        regexp: '^{{ ssh_remote_user }}'
-        line: '{{ ssh_remote_user }} ALL=(ALL) NOPASSWD: ALL'
-        validate: 'visudo -cf %s'
+        regexp: "^{{ ssh_remote_user }}"
+        line: "{{ ssh_remote_user }} ALL=(ALL) NOPASSWD: ALL"
+        validate: "visudo -cf %s"

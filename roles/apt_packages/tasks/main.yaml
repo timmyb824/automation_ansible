@@ -1,0 +1,36 @@
+---
+- name: Update apt package cache
+  become: true
+  apt:
+    update_cache: yes
+
+- name: Fetch package list from gist
+  become: false # Explicitly disable sudo for this task
+  uri:
+    url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw/apt.list"
+    return_content: yes
+    validate_certs: yes
+    method: GET
+  register: package_list
+  delegate_to: localhost
+  run_once: true # Only need to fetch once
+
+- name: Parse package list
+  become: false # No sudo needed for parsing
+  set_fact:
+    apt_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+
+- name: Install apt packages
+  become: true
+  apt:
+    name: "{{ apt_packages }}"
+    state: latest
+  # check_mode: yes # This will do a "dry run"
+  register: package_install
+
+- name: Debug package installation
+  debug:
+    msg:
+      - "Packages to be installed: {{ apt_packages }}"
+      - "Installation status: {{ package_install }}"
+    verbosity: 0

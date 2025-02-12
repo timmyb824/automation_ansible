@@ -1,0 +1,13 @@
+---
+- name: Install and configure system packages
+  hosts: all
+  become: true
+  roles:
+    - apt_packages
+
+- name: Install user tools and configurations
+  hosts: all
+  remote_user: tbryant
+  become: false
+  roles:
+    - basher

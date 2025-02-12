@@ -1,4 +1,4 @@
 *.DS_Store*
-
+.vagrant/
 servers/secrets/SECRETS.md
 servers/Archive/

@@ -1,0 +1,6 @@
+---
+- name: Initial user setup
+  hosts: all
+  become: true
+  roles:
+    - user_setup
