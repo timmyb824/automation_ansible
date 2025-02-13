@@ -1,0 +1,154 @@
+---
+- name: Check if cargo is installed
+  command: which cargo
+  register: cargo_check
+  failed_when: false
+  changed_when: false
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.cargo/bin:{{ ansible_env.PATH }}"
+
+- name: Set cargo environment
+  set_fact:
+    cargo_env:
+      PATH: "{{ ansible_env.HOME }}/.cargo/bin:{{ ansible_env.PATH }}"
+      CARGO_HOME: "{{ ansible_env.HOME }}/.cargo"
+      RUSTUP_HOME: "{{ ansible_env.HOME }}/.rustup"
+
+- name: Source cargo environment
+  shell: |
+    source "$HOME/.cargo/env"
+    cargo --version
+  args:
+    executable: /bin/bash
+  register: source_cargo
+  failed_when: false
+  changed_when: false
+  when: cargo_check.rc != 0 and ansible_os_family != "Darwin"
+
+- name: Verify cargo is available
+  shell: cargo --version
+  register: cargo_version
+  environment: "{{ cargo_env }}"
+  failed_when: cargo_version.rc != 0
+  changed_when: false
+  when: cargo_check.rc != 0 and source_cargo.rc == 0
+
+- name: Log cargo installation status
+  debug:
+    msg: "Cargo is not installed and environment sourcing failed - installation will be skipped"
+  when: cargo_check.rc != 0 and (source_cargo.rc != 0 or source_cargo is not defined)
+
+- name: Fetch cargo package list
+  uri:
+    url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw/cargo_{{ ansible_system | lower }}.list"
+    return_content: yes
+    validate_certs: yes
+    method: GET
+  register: package_list
+  delegate_to: localhost
+  run_once: true
+  when: cargo_check.rc == 0 or source_cargo.rc == 0
+
+- name: Parse package list
+  set_fact:
+    cargo_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+  when: package_list is defined and package_list.content is defined
+
+- name: Install standard cargo packages
+  shell: "cargo install {{ item }}"
+  register: cargo_install
+  loop: "{{ cargo_packages | default([]) | select('match', '^(?!--git|--locked).*$') | list }}"
+  environment: "{{ cargo_env }}"
+  changed_when: "cargo_install.rc == 0 and 'error: package `' ~ item ~ '` is already installed' not in cargo_install.stderr"
+  failed_when: >
+    cargo_install.rc != 0 and
+    'error: package `' ~ item ~ '` is already installed' not in cargo_install.stderr
+  when: cargo_packages is defined
+
+- name: Install git-based cargo packages
+  shell: "cargo install --git {{ item | regex_replace('^--git\\s+', '') }}"
+  register: cargo_git_install
+  loop: "{{ cargo_packages | default([]) | select('match', '^--git') | list }}"
+  environment: "{{ cargo_env }}"
+  changed_when: "cargo_git_install.rc == 0 and 'error: package is already installed' not in cargo_git_install.stderr"
+  failed_when: >
+    cargo_git_install.rc != 0 and
+    'error: package is already installed' not in cargo_git_install.stderr
+  when: cargo_packages is defined
+
+- name: Install locked cargo packages
+  shell: "cargo install --locked {{ item | regex_replace('^--locked\\s+', '') }}"
+  register: cargo_locked_install
+  loop: "{{ cargo_packages | default([]) | select('match', '^--locked') | list }}"
+  environment: "{{ cargo_env }}"
+  changed_when: "cargo_locked_install.rc == 0 and 'error: package is already installed' not in cargo_locked_install.stderr"
+  failed_when: >
+    cargo_locked_install.rc != 0 and
+    'error: package is already installed' not in cargo_locked_install.stderr
+  when: cargo_packages is defined
+
+- name: Log successful standard installations
+  debug:
+    msg: "Successfully installed package: {{ item.item }}"
+  loop: "{{ cargo_install.results }}"
+  when:
+    - cargo_install is defined
+    - item.rc == 0
+    - "'error: package `' ~ item.item ~ '` is already installed' not in item.stderr"
+
+- name: Log successful git installations
+  debug:
+    msg: "Successfully installed git package: {{ item.item }}"
+  loop: "{{ cargo_git_install.results }}"
+  when:
+    - cargo_git_install is defined
+    - item.rc == 0
+    - "'error: package is already installed' not in item.stderr"
+
+- name: Log successful locked installations
+  debug:
+    msg: "Successfully installed locked package: {{ item.item }}"
+  loop: "{{ cargo_locked_install.results }}"
+  when:
+    - cargo_locked_install is defined
+    - item.rc == 0
+    - "'error: package is already installed' not in item.stderr"
+
+- name: Log failed installations
+  debug:
+    msg: "Failed to install package: {{ item.item }} (Error: {{ item.stderr }})"
+  loop: "{{ cargo_install.results + cargo_git_install.results + cargo_locked_install.results }}"
+  when:
+    - item.rc != 0
+    - "'error: package is already installed' not in item.stderr"
+    - "'error: package `' ~ item.item ~ '` is already installed' not in item.stderr"
+
+- name: Check if zellij installation failed
+  command: which zellij
+  register: zellij_check
+  failed_when: false
+  changed_when: false
+  environment: "{{ cargo_env }}"
+  when: "'zellij' in cargo_packages"
+
+- name: Try installing zellij with pkgx
+  command: pkgx install zellij
+  register: pkgx_zellij
+  failed_when: false
+  when:
+    - "'zellij' in cargo_packages"
+    - zellij_check is defined
+    - zellij_check.rc != 0
+
+- name: Log zellij installation status
+  debug:
+    msg: >-
+      {% if pkgx_zellij is defined and pkgx_zellij.rc is defined and pkgx_zellij.rc == 0 %}
+      Successfully installed zellij with pkgx
+      {% else %}
+      Failed to install zellij with both cargo and pkgx
+      {% endif %}
+  when:
+    - "'zellij' in cargo_packages"
+    - zellij_check is defined
+    - zellij_check.rc != 0

@@ -11,3 +11,10 @@
   become: false
   roles:
     - basher
+
+- name: Install Rust toolchain and cargo
+  hosts: all
+  remote_user: tbryant
+  become: false
+  roles:
+    - cargo_packages
