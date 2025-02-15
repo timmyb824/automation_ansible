@@ -1,0 +1,13 @@
+---
+# These are the standard paths where pkgx might install binaries and store data
+pkgx_paths:
+  darwin:
+    cache: "{{ ansible_env.HOME }}/Library/Caches/pkgx"
+    data: "{{ ansible_env.HOME }}/Library/Application Support/pkgx"
+  linux:
+    cache: "{{ ansible_env.HOME }}/.cache/pkgx"
+    data: "{{ ansible_env.HOME }}/.local/share/pkgx"
+
+pkgx_common_paths:
+  - "{{ ansible_env.HOME }}/.pkgx"
+  - "{{ ansible_env.HOME }}/.local/bin/pkgx"

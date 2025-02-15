@@ -1,0 +1,6 @@
+---
+# State of the role (present or absent)
+atuin_state: present
+
+# Installation method for Linux (cargo or script)
+atuin_install_method: cargo

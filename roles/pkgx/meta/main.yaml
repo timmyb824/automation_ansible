@@ -1,0 +1,24 @@
+---
+galaxy_info:
+  author: Timothy Bryant
+  description: Install and manage pkgx and its packages
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+    - name: MacOSX
+      versions:
+        - all
+
+  galaxy_tags:
+    - pkgx
+    - package
+    - system
+    - management
+
+dependencies: []

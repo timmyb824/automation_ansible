@@ -1,0 +1,8 @@
+---
+- name: Include install tasks
+  ansible.builtin.include_tasks: install.yaml
+  when: pkgx_state == 'present'
+
+- name: Include uninstall tasks
+  ansible.builtin.include_tasks: uninstall.yaml
+  when: pkgx_state == 'absent'

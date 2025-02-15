@@ -1,0 +1,13 @@
+---
+- name: Include vault variables
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/vars/vault.yaml"
+  no_log: true
+
+- name: Include install tasks
+  ansible.builtin.include_tasks: install.yaml
+  when: atuin_state == 'present'
+
+- name: Include uninstall tasks
+  ansible.builtin.include_tasks: uninstall.yaml
+  when: atuin_state == 'absent'

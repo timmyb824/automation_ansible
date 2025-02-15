@@ -1,0 +1,25 @@
+---
+- name: Uninstall atuin on MacOS
+  community.general.homebrew:
+    name: atuin
+    state: absent
+  when: ansible_os_family == 'Darwin'
+
+- name: Remove atuin binary on Linux
+  ansible.builtin.file:
+    path: "/usr/local/bin/atuin"
+    state: absent
+  when: ansible_os_family != 'Darwin'
+  become: true
+
+- name: Remove atuin cargo installation
+  ansible.builtin.command: cargo uninstall atuin
+  when:
+    - ansible_os_family != 'Darwin'
+    - atuin_install_method == 'cargo'
+  failed_when: false  # Don't fail if already uninstalled
+
+- name: Remove atuin configuration directory
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.local/share/atuin"
+    state: absent

@@ -1,0 +1,117 @@
+---
+- name: Install atuin on MacOS
+  community.general.homebrew:
+    name: atuin
+    state: present
+  when: ansible_os_family == 'Darwin'
+
+- name: Check if cargo is available
+  command: which cargo
+  register: cargo_check
+  failed_when: false
+  changed_when: false
+  when: ansible_os_family != 'Darwin'
+
+- name: Check if cargo env file exists
+  stat:
+    path: "{{ ansible_env.HOME }}/.cargo/env"
+  register: cargo_env_file
+  when: ansible_os_family != 'Darwin'
+
+- name: Source cargo environment
+  ansible.builtin.shell: source $HOME/.cargo/env && echo $PATH
+  args:
+    executable: /bin/bash
+  register: cargo_env
+  when:
+    - ansible_os_family != 'Darwin'
+    - cargo_check.rc != 0
+    - cargo_env_file.stat.exists
+
+- name: Update PATH for current session
+  ansible.builtin.set_fact:
+    ansible_env: "{{ ansible_env | combine({'PATH': ansible_env.HOME + '/.cargo/bin:' + ansible_env.PATH}) }}"
+  when: ansible_os_family != 'Darwin'
+
+- name: Install atuin with cargo
+  ansible.builtin.shell: |
+    source $HOME/.cargo/env
+    cargo install atuin
+  args:
+    executable: /bin/bash
+  register: cargo_install
+  when:
+    - ansible_os_family != 'Darwin'
+    - atuin_install_method == 'cargo'
+    - cargo_check.rc == 0 or cargo_env is defined
+  changed_when: "'Installed' in cargo_install.stdout"
+  failed_when:
+    - cargo_install.rc != 0
+    - "'already exists' not in cargo_install.stderr"
+
+- name: Install atuin with official script on Linux
+  ansible.builtin.shell: curl -sS https://raw.githubusercontent.com/ellie/atuin/main/install.sh | bash
+  args:
+    creates: "/usr/local/bin/atuin"
+  when:
+    - ansible_os_family != 'Darwin'
+    - atuin_install_method == 'script'
+  become: true
+
+- name: Get current shell
+  ansible.builtin.command: basename $SHELL
+  register: shell_name
+  changed_when: false
+
+- name: Initialize atuin
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    atuin init {{ shell_name.stdout }}
+  args:
+    executable: /bin/bash
+  register: atuin_init
+  changed_when: false
+
+- name: Check atuin login status
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    atuin status
+  args:
+    executable: /bin/bash
+  register: atuin_status
+  changed_when: false
+  failed_when: false
+
+- name: Debug atuin status
+  ansible.builtin.debug:
+    var: atuin_status
+
+- name: Debug credentials
+  ansible.builtin.debug:
+    msg: "Username defined: {{ atuin_username is defined and atuin_username != '' }}, Password defined: {{ atuin_password is defined and atuin_password != '' }}, Key defined: {{ atuin_key is defined and atuin_key != '' }}"
+  no_log: true
+
+- name: Login to atuin
+  ansible.builtin.shell: |
+    set -x  # Enable command tracing
+    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    atuin login -u "{{ atuin_username }}" -p "{{ atuin_password }}" -k "{{ atuin_key }}" || {
+      echo "Login failed with exit code $?"
+      exit 1
+    }
+  args:
+    executable: /bin/bash
+  register: login_result
+  when:
+    - atuin_status.stdout == "You are not logged in to a sync server - cannot show sync status"
+    - atuin_username is defined and atuin_username != ''
+    - atuin_password is defined and atuin_password != ''
+    - atuin_key is defined and atuin_key != ''
+  ignore_errors: true # Don't fail the play, we'll handle the error
+  no_log: true # Hide output as it might contain sensitive information
+
+- name: Debug login failure
+  ansible.builtin.debug:
+    msg: "Login failed. Exit code: {{ login_result.rc }}"
+  when: login_result is defined and login_result.rc is defined and login_result.rc != 0
+  no_log: false # Show this debug message

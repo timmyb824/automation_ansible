@@ -1,4 +1,10 @@
 ---
+- name: Configure Vagrant-specific settings
+  hosts: vagrant
+  become: true
+  roles:
+    - role: dns_config
+
 - name: Initial user setup
   hosts: all
   become: true

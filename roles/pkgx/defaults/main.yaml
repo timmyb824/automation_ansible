@@ -1,0 +1,2 @@
+---
+pkgx_state: present # Can be 'present' or 'absent'

@@ -3,18 +3,23 @@
   hosts: all
   become: true
   roles:
-    - apt_packages
+    - role: apt_packages
 
 - name: Install user tools and configurations
   hosts: all
   remote_user: tbryant
   become: false
   roles:
-    - basher
+    - role: basher
 
-- name: Install Rust toolchain and cargo
+- name: Install user tools and packages
   hosts: all
   remote_user: tbryant
   become: false
   roles:
-    - cargo_packages
+    # - role: cargo_packages
+    # - role: pkgx
+    #   pkgx_state: present
+    # - role: atuin
+    #   atuin_state: present
+    #   atuin_install_method: cargo

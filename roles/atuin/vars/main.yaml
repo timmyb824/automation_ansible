@@ -1,0 +1,3 @@
+---
+# Placeholder for variables. The actual credentials will be loaded from vault.yaml
+atuin_placeholder: true

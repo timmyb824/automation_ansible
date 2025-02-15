@@ -1,0 +1,78 @@
+---
+- name: Install pkgx on MacOS
+  community.general.homebrew:
+    name: pkgxdev/made/pkgx
+    state: present
+  when: ansible_os_family == 'Darwin'
+
+- name: Install curl on Linux
+  apt:
+    name: curl
+    state: present
+    update_cache: yes
+  when:
+    - ansible_os_family == 'Debian'
+    - ansible_pkg_mgr == 'apt'
+  become: true
+
+- name: Install pkgx on Linux
+  shell: curl -Ssf https://pkgx.sh | sh
+  args:
+    creates: "/usr/local/bin/pkgx"
+  when: ansible_os_family != 'Darwin'
+  become: true
+
+- name: Check if pkgm is available
+  command: which pkgm
+  register: pkgm_check
+  failed_when: false
+  changed_when: false
+
+- name: Fetch pkgx package list
+  uri:
+    url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw/pkgx_{{ ansible_system | lower }}.list"
+    return_content: yes
+    validate_certs: yes
+    method: GET
+  register: package_list
+  delegate_to: localhost
+  run_once: true
+
+- name: Parse package list
+  set_fact:
+    pkgx_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+  when: package_list is defined and package_list.content is defined
+
+- name: Verify package list is not empty
+  ansible.builtin.fail:
+    msg: "No packages found in the package list for {{ ansible_system | lower }}"
+  when:
+    - pkgx_packages is defined
+    - pkgx_packages | length == 0
+
+- name: Verify pkgm is available
+  ansible.builtin.fail:
+    msg: "pkgm is not available. Please ensure pkgx installation was successful."
+  when: pkgm_check.rc != 0
+
+- name: Install pkgx packages
+  become: true
+  command: "pkgm install {{ item }}"
+  register: pkgx_install
+  loop: "{{ pkgx_packages }}"
+  changed_when: "'pkgx: installed:' in pkgx_install.stdout"
+  failed_when:
+    - pkgx_install.rc != 0
+    - "'already installed' not in pkgx_install.stderr"
+    - "'nothing provides:' not in pkgx_install.stderr"
+  when: pkgx_packages is defined
+  ignore_errors: true
+
+- name: Debug package installation results
+  ansible.builtin.debug:
+    msg: "Failed to install {{ item.item }}: {{ item.stderr }}"
+  loop: "{{ pkgx_install.results }}"
+  when:
+    - pkgx_install is defined
+    - item.failed
+    - "'already installed' not in item.stderr"

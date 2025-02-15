@@ -1,0 +1,48 @@
+---
+- name: Check if pkgx is installed
+  command: which pkgx
+  register: pkgx_check
+  failed_when: false
+  changed_when: false
+
+- name: Uninstall pkgx packages
+  command: "pkgm uninstall {{ item }}"
+  register: pkgx_uninstall
+  loop: "{{ pkgx_packages | default([]) }}"
+  when:
+    - pkgx_packages is defined
+    - pkgx_check.rc == 0
+  ignore_errors: true
+
+- name: Debug package uninstallation results
+  ansible.builtin.debug:
+    msg: "Failed to uninstall {{ item.item }}: {{ item.stderr }}"
+  loop: "{{ pkgx_uninstall.results | default([]) }}"
+  when:
+    - pkgx_uninstall is defined
+    - item.failed
+    - "'not installed' not in item.stderr"
+
+- name: Uninstall pkgx on MacOS
+  homebrew:
+    name: pkgxdev/made/pkgx
+    state: absent
+  when: ansible_os_family == 'Darwin'
+
+- name: Remove pkgx binary on Linux
+  file:
+    path: "/usr/local/bin/pkgx"
+    state: absent
+  when: ansible_os_family != 'Darwin'
+  become: true
+
+- name: Remove pkgx directories
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ ansible_env.HOME }}/.pkgx"
+    - "{{ ansible_env.HOME }}/Library/Caches/pkgx"
+    - "{{ ansible_env.HOME }}/Library/Application Support/pkgx"
+    - "{{ ansible_env.HOME }}/.cache/pkgx"
+    - "{{ ansible_env.HOME }}/.local/share/pkgx"
