@@ -1,16 +1,16 @@
 ---
-- name: Install and configure system packages
-  hosts: all
-  become: true
-  roles:
-    - role: apt_packages
+# - name: Install and configure system packages
+#   hosts: all
+#   become: true
+#   roles:
+#     - role: apt_packages
 
-- name: Install user tools and configurations
-  hosts: all
-  remote_user: tbryant
-  become: false
-  roles:
-    - role: basher
+# - name: Install user tools and configurations
+#   hosts: all
+#   remote_user: tbryant
+#   become: false
+#   roles:
+#     - role: basher
 
 - name: Install user tools and packages
   hosts: all
@@ -23,3 +23,8 @@
     # - role: atuin
     #   atuin_state: present
     #   atuin_install_method: cargo
+    # - role: node_setup
+    #   node_version: "20"
+    - role: fzf
+      fzf_state: present
+      git_ssl_verify: "{{ false if inventory_hostname in groups['vagrant'] else true }}"

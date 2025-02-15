@@ -1,0 +1,23 @@
+---
+- name: Install fzf on MacOS
+  community.general.homebrew:
+    name: fzf
+    state: "{{ 'present' if fzf_state == 'present' else 'absent' }}"
+
+- name: Run fzf installer on MacOS
+  ansible.builtin.command: "$(brew --prefix)/opt/fzf/install --all"
+  args:
+    creates: "{{ ansible_env.HOME }}/.fzf.zsh"
+  when: fzf_state == "present"
+
+- name: Clone fzf-git.sh
+  ansible.builtin.shell: |
+    ghq get https://github.com/junegunn/fzf-git.sh
+  args:
+    executable: /bin/bash
+  when: fzf_state == "present"
+
+- name: Install fd-find with homebrew
+  community.general.homebrew:
+    name: fd
+    state: "{{ 'present' if fzf_state == 'present' else 'absent' }}"

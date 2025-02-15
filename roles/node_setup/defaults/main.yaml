@@ -1,0 +1,3 @@
+---
+node_version: "20"  # Default Node.js version to install
+node_setup_state: present

@@ -1,0 +1,3 @@
+---
+fzf_state: present  # Can be 'present' or 'absent'
+git_ssl_verify: true  # Set to false for Vagrant environments if needed

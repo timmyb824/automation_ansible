@@ -1,0 +1,36 @@
+---
+- name: Check if npm is available
+  ansible.builtin.command: which npm
+  register: npm_check
+  changed_when: false
+  failed_when: false
+
+- name: Check if fnm is in PATH
+  ansible.builtin.command: which fnm
+  register: fnm_check
+  changed_when: false
+  failed_when: false
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+
+- name: Install Node.js using fnm
+  when: npm_check.rc != 0 and fnm_check.rc == 0
+  block:
+    - name: Install Node.js version
+      ansible.builtin.shell: |
+        eval "$(fnm env --use-on-cd)"
+        fnm install {{ node_version }}
+      register: node_install
+      changed_when: "'successfully' in node_install.stdout"
+
+    - name: Use Node.js version
+      ansible.builtin.shell: |
+        eval "$(fnm env --use-on-cd)"
+        fnm use {{ node_version }}
+      register: node_use
+      changed_when: "'now using' in node_use.stdout"
+
+- name: Fail if fnm is not available
+  ansible.builtin.fail:
+    msg: "fnm is not available in PATH. Please ensure fnm is installed."
+  when: npm_check.rc != 0 and fnm_check.rc != 0

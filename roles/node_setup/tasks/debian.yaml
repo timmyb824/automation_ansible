@@ -1,0 +1,75 @@
+---
+- name: Check if cargo env file exists
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/.cargo/env"
+  register: cargo_env_file
+
+- name: Source cargo environment
+  ansible.builtin.shell: source $HOME/.cargo/env && echo $PATH
+  args:
+    executable: /bin/bash
+  register: cargo_env
+  when: cargo_env_file.stat.exists
+
+- name: Update PATH for current session
+  ansible.builtin.set_fact:
+    ansible_env: "{{ ansible_env | combine({'PATH': ansible_env.HOME + '/.cargo/bin:' + ansible_env.PATH}) }}"
+  when: cargo_env_file.stat.exists
+
+- name: Check if npm is available
+  ansible.builtin.command: which npm
+  register: npm_check
+  changed_when: false
+  failed_when: false
+
+- name: Check if fnm is in PATH
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    which fnm
+  args:
+    executable: /bin/bash
+  register: fnm_check
+  changed_when: false
+  failed_when: false
+
+- name: Initialize fnm and install Node.js
+  when: npm_check.rc != 0 and fnm_check.rc == 0
+  block:
+    - name: Get fnm environment variables
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+        fnm env --use-on-cd
+      args:
+        executable: /bin/bash
+      register: fnm_env_vars
+      changed_when: false
+
+    - name: Initialize fnm environment
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+        eval "$(fnm env --use-on-cd)"
+        echo $PATH
+      args:
+        executable: /bin/bash
+      register: fnm_env
+      changed_when: false
+
+    - name: Install Node.js version
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+        eval "$(fnm env --use-on-cd)"
+        fnm install {{ node_version }}
+      args:
+        executable: /bin/bash
+      register: node_install
+      changed_when: "'successfully' in node_install.stdout"
+
+    - name: Use Node.js version
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+        eval "$(fnm env --use-on-cd)"
+        fnm use {{ node_version }}
+      args:
+        executable: /bin/bash
+      register: node_use
+      changed_when: "'now using' in node_use.stdout"

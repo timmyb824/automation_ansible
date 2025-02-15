@@ -1,0 +1,105 @@
+---
+- name: Check if git is installed
+  ansible.builtin.command: which git
+  register: git_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if git is not installed
+  ansible.builtin.fail:
+    msg: "git is not installed - please install git and run this playbook again"
+  when: git_check.rc != 0
+
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - openssl
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Configure git SSL verification
+  ansible.builtin.command: git config --global http.sslverify "false"
+  when: not git_ssl_verify
+  changed_when: false
+
+- name: Remove system fzf if installed
+  ansible.builtin.apt:
+    name: fzf
+    state: absent
+  become: true
+  register: fzf_uninstall
+  when: fzf_state == "present"
+
+- name: Clone fzf repository
+  ansible.builtin.git:
+    repo: https://github.com/junegunn/fzf.git
+    dest: "{{ ansible_env.HOME }}/.fzf"
+    depth: 1
+    version: master
+  when: fzf_state == "present"
+
+- name: Run fzf installer
+  ansible.builtin.command: "{{ ansible_env.HOME }}/.fzf/install --all"
+  args:
+    creates: "{{ ansible_env.HOME }}/.fzf/bin/fzf"
+  when: fzf_state == "present"
+
+- name: Check if ghq is in PATH
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/go/bin:$PATH"
+    which ghq
+  args:
+    executable: /bin/bash
+  register: ghq_check
+  changed_when: false
+  failed_when: false
+
+- name: Clone fzf-git.sh
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/go/bin:$PATH"
+    ghq get https://github.com/junegunn/fzf-git.sh
+  args:
+    executable: /bin/bash
+  when:
+    - fzf_state == "present"
+    - ghq_check.rc == 0
+
+- name: Check if cargo env file exists
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/.cargo/env"
+  register: cargo_env_file
+
+- name: Source cargo environment
+  ansible.builtin.shell: source $HOME/.cargo/env && echo $PATH
+  args:
+    executable: /bin/bash
+  register: cargo_env
+  when: cargo_env_file.stat.exists
+
+- name: Update PATH for current session
+  ansible.builtin.set_fact:
+    ansible_env: "{{ ansible_env | combine({'PATH': ansible_env.HOME + '/.cargo/bin:' + ansible_env.PATH}) }}"
+  when: cargo_env_file.stat.exists
+
+- name: Check if fd-find is installed
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    which fd
+  args:
+    executable: /bin/bash
+  register: fd_check
+  changed_when: false
+  failed_when: false
+
+- name: Install fd-find with cargo
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    cargo install fd-find
+  args:
+    executable: /bin/bash
+  when:
+    - fzf_state == "present"
+    - fd_check.rc != 0
+    - cargo_env_file.stat.exists
