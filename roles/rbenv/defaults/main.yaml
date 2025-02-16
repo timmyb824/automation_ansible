@@ -1,0 +1,3 @@
+---
+rbenv_state: present  # Can be 'present' or 'absent'
+ruby_version: "3.2.2"  # Default Ruby version to install

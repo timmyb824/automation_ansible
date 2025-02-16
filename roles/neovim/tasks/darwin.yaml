@@ -1,0 +1,5 @@
+---
+- name: Install Neovim on MacOS
+  community.general.homebrew:
+    name: neovim
+    state: "{{ 'present' if neovim_state == 'present' else 'absent' }}"

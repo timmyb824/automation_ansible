@@ -1,0 +1,40 @@
+---
+- name: Check for Homebrew
+  ansible.builtin.command: which brew
+  register: brew_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if Homebrew is not installed
+  ansible.builtin.fail:
+    msg: "Homebrew could not be found. Please install Homebrew to continue."
+  when: brew_check.rc != 0 and rbenv_state == "present"
+
+- name: Install rbenv and ruby-build on MacOS
+  when: rbenv_state == "present"
+  block:
+    - name: Update Homebrew
+      community.general.homebrew:
+        update_homebrew: true
+
+    - name: Install rbenv and ruby-build
+      community.general.homebrew:
+        name:
+          - rbenv
+          - ruby-build
+        state: present
+
+- name: Uninstall rbenv on MacOS
+  when: rbenv_state == "absent"
+  block:
+    - name: Remove rbenv and ruby-build
+      community.general.homebrew:
+        name:
+          - rbenv
+          - ruby-build
+        state: absent
+
+    - name: Remove rbenv directory
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.rbenv"
+        state: absent

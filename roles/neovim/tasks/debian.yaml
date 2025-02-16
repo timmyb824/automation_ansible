@@ -1,0 +1,78 @@
+---
+- name: Check if curl is installed
+  ansible.builtin.command: which curl
+  register: curl_check
+  changed_when: false
+  failed_when: false
+
+- name: Install curl if not present
+  ansible.builtin.apt:
+    name: curl
+    state: present
+    update_cache: yes
+  become: true
+  when: curl_check.rc != 0
+
+- name: Remove existing Neovim package if installed
+  ansible.builtin.apt:
+    name: neovim
+    state: absent
+  become: true
+  when: neovim_state == "present"
+
+- name: Install Neovim from release
+  when: neovim_state == "present"
+  block:
+    - name: Create temp directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: nvim
+      register: nvim_temp_dir
+
+    - name: Download Neovim release
+      ansible.builtin.get_url:
+        url: "https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.tar.gz"
+        dest: "{{ nvim_temp_dir.path }}/nvim-linux64.tar.gz"
+        mode: "0644"
+
+    - name: Remove existing Neovim directory
+      ansible.builtin.file:
+        path: /opt/nvim
+        state: absent
+      become: true
+
+    - name: Extract Neovim to /opt
+      ansible.builtin.unarchive:
+        src: "{{ nvim_temp_dir.path }}/nvim-linux64.tar.gz"
+        dest: /opt
+        remote_src: true
+      become: true
+
+    - name: Create symlink to nvim binary
+      ansible.builtin.file:
+        src: /opt/nvim-linux64/bin/nvim
+        dest: /usr/local/bin/nvim
+        state: link
+        force: true
+        follow: false
+      become: true
+
+    - name: Clean up temp directory
+      ansible.builtin.file:
+        path: "{{ nvim_temp_dir.path }}"
+        state: absent
+
+- name: Remove Neovim installation
+  when: neovim_state == "absent"
+  block:
+    - name: Remove Neovim directory
+      ansible.builtin.file:
+        path: /opt/nvim-linux64
+        state: absent
+      become: true
+
+    - name: Remove Neovim symlink
+      ansible.builtin.file:
+        path: /usr/local/bin/nvim
+        state: absent
+      become: true

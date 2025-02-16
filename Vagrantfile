@@ -7,15 +7,16 @@ Vagrant.configure("2") do |config|
   # Enable SSH forward agent
   # config.ssh.forward_agent = true
 
-#   # Enable provisioning with Ansible. This will run the playbook in the
-#   # same directory as this Vagrantfile, with the name "playbook.yaml".
-#   config.vm.provision "ansible" do |ansible|
-#     ansible.playbook = "playbook.yaml"
-#     ansible.raw_arguments = [
-#       "--ask-vault-pass",
-#       "-e", "@roles/user_setup/vars/vault.yaml"
-#     ]
-#   end
+  # Enable provisioning with Ansible. This will run the playbook in the
+  # same directory as this Vagrantfile, with the name "playbook.yaml".
+  config.vm.provision "ansible" do |ansible|
+    ansible.playbook = "initial_setup.yaml"
+    ansible.raw_arguments = [
+      "-i", "inventory_root.yaml",
+      "-e", "@roles/user_setup/vars/vault.yaml",
+      "--ask-vault-pass",
+    ]
+  end
 
 #   # Configure SSH to use tbryant user after provisioning
 #   config.vm.provision "shell", inline: <<-SHELL

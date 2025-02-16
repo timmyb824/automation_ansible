@@ -1,0 +1,102 @@
+---
+- name: Install rbenv dependencies on Linux
+  when: rbenv_state == "present"
+  block:
+    - name: Check if /usr/local/bin/curl exists
+      ansible.builtin.stat:
+        path: /usr/local/bin/curl
+      register: local_curl
+      when: inventory_hostname in groups['vagrant']
+
+    - name: Temporarily move /usr/local/bin/curl if it exists
+      ansible.builtin.command: mv /usr/local/bin/curl /usr/local/bin/curl.bak
+      become: true
+      when:
+        - inventory_hostname in groups['vagrant']
+        - local_curl.stat.exists | default(false)
+      register: curl_moved
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+      become: true
+
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - git
+          - curl
+          - autoconf
+          - bison
+          - build-essential
+          - libssl-dev
+          - libyaml-dev
+          - libreadline6-dev
+          - zlib1g-dev
+          - libncurses5-dev
+          - libffi-dev
+          - libgdbm6
+          - libgdbm-dev
+          - libdb-dev
+          - ca-certificates
+        state: present
+      become: true
+
+    - name: Update CA certificates
+      ansible.builtin.command: update-ca-certificates
+      become: true
+      changed_when: false
+
+    - name: Configure git to not verify SSL for ruby-build
+      ansible.builtin.command: git config --global http.sslVerify false
+      when: inventory_hostname in groups['vagrant']
+
+    - name: Set CURL_CA_BUNDLE for ruby-build
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.bashrc"
+        line: "export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
+        create: true
+      when: inventory_hostname in groups['vagrant']
+
+    - name: Download rbenv installer
+      ansible.builtin.get_url:
+        url: https://github.com/rbenv/rbenv-installer/raw/HEAD/bin/rbenv-installer
+        dest: /tmp/rbenv-installer
+        mode: "0755"
+        validate_certs: "{{ inventory_hostname not in groups['vagrant'] }}"
+
+    - name: Run rbenv installer
+      ansible.builtin.shell: /tmp/rbenv-installer
+      args:
+        creates: "{{ ansible_env.HOME }}/.rbenv/bin/rbenv"
+
+    - name: Clean up installer
+      ansible.builtin.file:
+        path: /tmp/rbenv-installer
+        state: absent
+
+    - name: Restore /usr/local/bin/curl if it was moved
+      ansible.builtin.command: mv /usr/local/bin/curl.bak /usr/local/bin/curl
+      become: true
+      when: curl_moved is defined and curl_moved.changed
+      ignore_errors: true
+
+- name: Uninstall rbenv on Linux
+  when: rbenv_state == "absent"
+  block:
+    - name: Remove rbenv directory
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.rbenv"
+        state: absent
+
+    - name: Reset git SSL verification
+      ansible.builtin.command: git config --global --unset http.sslVerify
+      when: inventory_hostname in groups['vagrant']
+      ignore_errors: true
+
+    - name: Remove CURL_CA_BUNDLE from bashrc
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.bashrc"
+        line: "export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
+        state: absent
+      when: inventory_hostname in groups['vagrant']

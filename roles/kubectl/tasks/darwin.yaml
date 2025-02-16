@@ -1,0 +1,95 @@
+---
+- name: Check if curl is installed
+  ansible.builtin.command: which curl
+  register: curl_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if curl is not installed
+  ansible.builtin.fail:
+    msg: "Error: 'curl' is required to download files."
+  when: curl_check.rc != 0
+
+- name: Check if kubectl is installed
+  ansible.builtin.command: which kubectl
+  register: kubectl_check
+  changed_when: false
+  failed_when: false
+
+- name: Install kubectl
+  when: kubectl_check.rc != 0
+  block:
+    - name: Download kubectl binary
+      ansible.builtin.get_url:
+        url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/darwin/arm64/kubectl"
+        dest: /tmp/kubectl
+        mode: '0755'
+      register: kubectl_download
+
+    - name: Move kubectl to /usr/local/bin
+      ansible.builtin.copy:
+        src: /tmp/kubectl
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+        remote_src: true
+      become: true
+
+    - name: Set kubectl ownership
+      ansible.builtin.file:
+        path: /usr/local/bin/kubectl
+        owner: root
+        group: wheel
+        mode: '0755'
+      become: true
+
+- name: Check if krew is installed
+  ansible.builtin.shell: kubectl krew 2>/dev/null
+  register: krew_check
+  changed_when: false
+  failed_when: false
+
+- name: Install krew
+  when: krew_check.rc != 0
+  block:
+    - name: Create temp directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: krew
+      register: krew_temp_dir
+
+    - name: Set krew filename
+      ansible.builtin.set_fact:
+        krew_filename: "krew-darwin_arm64"
+
+    - name: Download krew
+      ansible.builtin.get_url:
+        url: "https://github.com/kubernetes-sigs/krew/releases/latest/download/{{ krew_filename }}.tar.gz"
+        dest: "{{ krew_temp_dir.path }}/{{ krew_filename }}.tar.gz"
+        mode: '0755'
+
+    - name: Extract krew
+      ansible.builtin.unarchive:
+        src: "{{ krew_temp_dir.path }}/{{ krew_filename }}.tar.gz"
+        dest: "{{ krew_temp_dir.path }}"
+        remote_src: true
+
+    - name: Install krew
+      ansible.builtin.shell: |
+        "{{ krew_temp_dir.path }}/{{ krew_filename }}" install krew
+      environment:
+        PATH: "{{ ansible_env.PATH }}:{{ ansible_env.HOME }}/.krew/bin"
+      register: krew_install
+
+    - name: Add krew to PATH in shell rc files
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/{{ item }}"
+        line: 'export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"'
+        create: true
+      loop:
+        - .zshrc
+        - .bashrc
+
+    - name: Clean up temp directory
+      ansible.builtin.file:
+        path: "{{ krew_temp_dir.path }}"
+        state: absent

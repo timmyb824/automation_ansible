@@ -1,0 +1,23 @@
+---
+- name: Include OS-specific tasks
+  ansible.builtin.include_tasks: "{{ ansible_os_family | lower }}.yaml"
+
+- name: Install Ruby version
+  when: rbenv_state == "present"
+  ansible.builtin.shell: |
+    export PATH="$HOME/.rbenv/bin:$PATH"
+    eval "$(rbenv init -)"
+    if [ -f /etc/ssl/certs/ca-certificates.crt ]; then
+      export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+    fi
+    if ! rbenv versions | grep -q "{{ ruby_version }}"; then
+      rbenv install "{{ ruby_version }}"
+    fi
+    rbenv global "{{ ruby_version }}"
+  args:
+    executable: /bin/bash
+  register: ruby_install
+  changed_when: "'Downloading ruby' in ruby_install.stderr or 'Installed ruby' in ruby_install.stderr"
+  failed_when:
+    - ruby_install.rc != 0
+    - "'already exists' not in ruby_install.stderr"

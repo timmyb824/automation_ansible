@@ -1,6 +1,6 @@
 ---
 - name: Configure Vagrant-specific settings
-  hosts: vagrant
+  hosts: all
   become: true
   roles:
     - role: dns_config
