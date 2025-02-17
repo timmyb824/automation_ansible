@@ -34,6 +34,11 @@
     #   kubectl_state: present
     # - role: neovim
     #   neovim_state: present
-    - role: rbenv
-      rbenv_state: present
-      ruby_version: "3.2.2"
+    # - role: rbenv
+    #   rbenv_state: present
+    #   ruby_version: "3.2.2"
+    - role: uv
+      uv_state: present
+      uv_python_versions:
+        - "3.11"
+        - "3.12"

@@ -1,0 +1,111 @@
+---
+- name: Include OS-specific tasks
+  ansible.builtin.include_tasks: "{{ ansible_os_family | lower }}.yaml"
+
+- name: Install and configure uv
+  when: uv_state == "present"
+  block:
+    - name: Install uv
+      ansible.builtin.shell: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+      args:
+        creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+      register: uv_install
+      changed_when: uv_install.rc == 0
+
+    - name: Verify uv installation
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/.local/bin/uv"
+      register: uv_check
+      failed_when: not uv_check.stat.exists
+
+    - name: Install Python versions
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+        uv python install {{ item }}
+      loop: "{{ uv_python_versions }}"
+      register: python_install
+      changed_when: python_install.rc == 0
+      failed_when: false
+
+    - name: Debug Python installation results
+      ansible.builtin.debug:
+        msg: "Failed to install Python {{ item.item }}: {{ item.stderr }}"
+      loop: "{{ python_install.results }}"
+      when:
+        - item.rc != 0
+
+    - name: Fetch Python tools list
+      uri:
+        url: "{{ uv_tools_gist_url }}"
+        return_content: yes
+        validate_certs: yes
+        method: GET
+      register: tools_list
+      delegate_to: localhost
+      run_once: true
+
+    - name: Parse tools list
+      set_fact:
+        uv_tools: "{{ tools_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+      when: tools_list is defined and tools_list.content is defined
+
+    - name: Verify tools list is not empty
+      ansible.builtin.fail:
+        msg: "No tools found in the tools list"
+      when:
+        - uv_tools is defined
+        - uv_tools | length == 0
+
+    - name: Install Python tools
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+        uv tool install {{ item }}
+      register: tools_install
+      loop: "{{ uv_tools }}"
+      changed_when: tools_install.rc == 0
+      failed_when: false
+      when: uv_tools is defined
+
+    - name: Debug tool installation results
+      ansible.builtin.debug:
+        msg: "Failed to install {{ item.item }}: {{ item.stderr }}"
+      loop: "{{ tools_install.results }}"
+      when:
+        - tools_install is defined
+        - item.rc != 0
+
+- name: Uninstall uv
+  when: uv_state == "absent"
+  block:
+    - name: Clean uv cache
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+        uv cache clean
+      failed_when: false
+      changed_when: true
+      ignore_errors: true
+
+    - name: Remove Python installations
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+        rm -rf "$(uv python dir)"
+      failed_when: false
+      changed_when: true
+      ignore_errors: true
+
+    - name: Remove tool installations
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+        rm -rf "$(uv tool dir)"
+      failed_when: false
+      changed_when: true
+      ignore_errors: true
+
+    - name: Remove uv binaries
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.local/bin/{{ item }}"
+        state: absent
+      loop:
+        - uv
+        - uvx

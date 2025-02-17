@@ -1,0 +1,30 @@
+---
+- name: Check for pipx
+  ansible.builtin.command: which pipx
+  register: pipx_check
+  changed_when: false
+  failed_when: false
+
+- name: Uninstall all pipx packages if present
+  ansible.builtin.shell: pipx uninstall-all
+  when: 
+    - pipx_check.rc == 0
+    - uv_state == "present"
+  register: pipx_uninstall
+  changed_when: pipx_uninstall.rc == 0
+  failed_when: false
+
+- name: Check for pyenv installation
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/.pyenv/bin/pyenv"
+  register: pyenv_check
+
+- name: Remove pyenv if present
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.pyenv"
+    state: absent
+  when: 
+    - pyenv_check.stat.exists
+    - uv_state == "present"
+  register: pyenv_remove
+  changed_when: pyenv_remove.changed
