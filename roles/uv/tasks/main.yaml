@@ -6,7 +6,9 @@
   when: uv_state == "present"
   block:
     - name: Install uv
-      ansible.builtin.shell: |
+      ansible.builtin.shell:
+      cmd: |
+        set -o pipefail
         curl -LsSf https://astral.sh/uv/install.sh | sh
       args:
         creates: "{{ ansible_env.HOME }}/.local/bin/uv"
@@ -36,17 +38,17 @@
         - item.rc != 0
 
     - name: Fetch Python tools list
-      uri:
+      ansible.builtin.uri:
         url: "{{ uv_tools_gist_url }}"
-        return_content: yes
-        validate_certs: yes
+        return_content: true
+        validate_certs: true
         method: GET
       register: tools_list
       delegate_to: localhost
       run_once: true
 
     - name: Parse tools list
-      set_fact:
+      ansible.builtin.set_fact:
         uv_tools: "{{ tools_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
       when: tools_list is defined and tools_list.content is defined
 
