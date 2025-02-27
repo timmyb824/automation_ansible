@@ -1,0 +1,25 @@
+---
+dependencies:
+  - role: homebrew
+    when: ansible_os_family == "Darwin"
+
+galaxy_info:
+  role_name: github_cli
+  description: Install GitHub CLI (gh)
+  author: timmyb824
+  license: MIT
+  min_ansible_version: "2.1"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+    - name: MacOS
+      versions:
+        - all
+  galaxy_tags:
+    - github
+    - cli
+    - development

@@ -1,0 +1,27 @@
+---
+- name: Get list of installed extensions
+  ansible.builtin.command: gh extension list
+  register: installed_extensions
+  changed_when: false
+  failed_when: false
+
+- name: Remove GitHub CLI extensions
+  ansible.builtin.command: "gh extension remove {{ item }}"
+  loop: "{{ installed_extensions.stdout_lines | default([]) }}"
+  when: item | length > 0
+  register: gh_extension_remove
+  changed_when: gh_extension_remove.rc == 0
+  failed_when: false  # Don't fail if extension doesn't exist
+
+- name: Uninstall GitHub CLI (Darwin)
+  community.general.homebrew:
+    name: gh
+    state: absent
+  when: ansible_os_family == "Darwin"
+
+- name: Remove GitHub CLI (Debian)
+  ansible.builtin.apt:
+    name: gh
+    state: absent
+    purge: true
+  when: ansible_os_family == "Debian"

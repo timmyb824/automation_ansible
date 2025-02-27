@@ -1,0 +1,6 @@
+---
+- name: Install GitHub CLI via Homebrew
+  community.general.homebrew:
+    name: gh
+    state: "{{ gh_cli_state }}"
+  when: gh_cli_state != 'absent'

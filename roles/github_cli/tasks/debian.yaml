@@ -1,0 +1,48 @@
+---
+- name: Install wget if not present
+  become: true
+  ansible.builtin.apt:
+    name: wget
+    state: present
+    update_cache: true
+
+- name: Create keyrings directory
+  become: true
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+  when: gh_cli_state != 'absent'
+
+- name: Download GitHub CLI GPG key
+  become: true
+  ansible.builtin.get_url:
+    url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    dest: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    mode: "0644"
+  when: gh_cli_state != 'absent'
+
+- name: Add GitHub CLI repository
+  become: true
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ ansible_architecture }} signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main"
+    state: "{{ 'present' if gh_cli_state != 'absent' else 'absent' }}"
+    filename: github-cli
+    update_cache: true
+
+- name: Install GitHub CLI
+  become: true
+  ansible.builtin.apt:
+    name: gh
+    state: "{{ 'absent' if gh_cli_state == 'absent' else ('latest' if gh_cli_state == 'latest' else 'present') }}"
+    update_cache: true
+
+- name: Remove GitHub CLI repository files
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    - /etc/apt/sources.list.d/github-cli.list
+  when: gh_cli_state == 'absent'

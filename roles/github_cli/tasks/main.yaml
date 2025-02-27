@@ -1,0 +1,151 @@
+---
+- name: Include vault variables
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/vars/vault.yaml"
+  no_log: true
+
+- name: Include OS-specific tasks
+  ansible.builtin.include_tasks: "{{ ansible_os_family | lower }}.yaml"
+  when: gh_cli_state == 'present'
+
+- name: Include uninstall tasks
+  ansible.builtin.include_tasks: uninstall.yaml
+  when: gh_cli_state == 'absent'
+
+- name: Check gh CLI installation
+  ansible.builtin.command: which gh
+  register: gh_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if gh CLI is not installed
+  ansible.builtin.fail:
+    msg: "GitHub CLI (gh) is not installed. Please ensure it's installed via Homebrew (macOS) or pkgx (Linux)."
+  when: gh_check.rc != 0
+
+- name: Check GitHub CLI auth status
+  ansible.builtin.command: gh auth status
+  register: gh_auth_status
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Debug auth status
+  ansible.builtin.debug:
+    msg: |
+      Auth Status RC: {{ gh_auth_status.rc }}
+      Auth Status stdout: {{ gh_auth_status.stdout }}
+      Auth Status stderr: {{ gh_auth_status.stderr }}
+  when: gh_cli_state == 'present'
+
+- name: Debug variables
+  ansible.builtin.debug:
+    msg: |
+      GitHub Secrets: {{ github_secrets | default('not defined') }}
+      All Variables: {{ vars | to_json }}
+  when: gh_cli_state == 'present'
+
+- name: Debug token status
+  ansible.builtin.debug:
+    msg: "GitHub token is {{ 'defined' if github_secrets.token is defined else 'not defined' }}"
+  when: gh_cli_state == 'present'
+
+- name: Debug variables (detailed)
+  ansible.builtin.debug:
+    msg: |
+      GitHub Secrets Type: {{ github_secrets | type_debug }}
+      GitHub Token Type: {{ github_secrets.token | type_debug }}
+      Token Length: {{ github_secrets.token | length }}
+      Token Value: {{ github_secrets.token }}
+      Raw Token: >-
+        {{ github_secrets.token | string }}
+  when: gh_cli_state == 'present'
+  no_log: false
+
+- name: Check GitHub CLI auth status
+  ansible.builtin.command: gh auth status
+  register: gh_auth_status
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Create temporary token file
+  ansible.builtin.copy:
+    content: "{{ github_secrets.token }}"
+    dest: "/tmp/gh_token.txt"
+    mode: "0600"
+  when:
+    - github_secrets.token is defined
+    - github_secrets.token | length > 0
+    - "'not logged in' in (gh_auth_status.stdout + gh_auth_status.stderr) | lower"
+    - gh_cli_state == 'present'
+
+- name: Authenticate GitHub CLI with Token
+  ansible.builtin.shell: gh auth login --with-token < /tmp/gh_token.txt
+  register: gh_auth
+  changed_when: gh_auth.rc == 0
+  failed_when: gh_auth.rc != 0
+  when:
+    - github_secrets.token is defined
+    - github_secrets.token | length > 0
+    - "'not logged in' in (gh_auth_status.stdout + gh_auth_status.stderr) | lower"
+    - gh_cli_state == 'present'
+
+- name: Remove temporary token file
+  ansible.builtin.file:
+    path: "/tmp/gh_token.txt"
+    state: absent
+  when:
+    - github_secrets.token is defined
+    - github_secrets.token | length > 0
+    - gh_cli_state == 'present'
+
+- name: Fetch package list from gist
+  ansible.builtin.uri:
+    url: "{{ gist_base_url }}/gh_cli.list"
+    return_content: true
+  register: package_list
+  delegate_to: localhost
+  run_once: true
+
+- name: Parse package list
+  ansible.builtin.set_fact:
+    gh_extensions: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+
+- name: Get list of installed extensions
+  ansible.builtin.command: gh extension list
+  register: installed_extensions
+  changed_when: false
+  failed_when: false
+  when: gh_cli_state == 'present'
+
+- name: Parse installed extensions
+  ansible.builtin.set_fact:
+    installed_extension_names: "{{ installed_extensions.stdout_lines | default([]) | map('regex_replace', '^([^\\s]+).*$', '\\1') | list }}"
+  when: gh_cli_state == 'present'
+
+- name: Install GitHub CLI extensions
+  ansible.builtin.command: "gh extension install {{ item }}"
+  loop: "{{ gh_extensions }}"
+  when:
+    - gh_cli_state == 'present'
+    - gh_extensions_state != 'absent'
+    - item | length > 0
+    - (item | regex_replace('^.*/', '') | lower) not in (installed_extension_names | map('lower') | list)
+  register: gh_extension_install
+  changed_when: gh_extension_install.rc == 0
+  failed_when:
+    - gh_extension_install.rc != 0
+    - '"there is already an installed extension" not in gh_extension_install.stderr'
+
+- name: Update GitHub CLI extensions
+  ansible.builtin.command: gh extension upgrade {{ item }}
+  loop: "{{ gh_extensions }}"
+  when:
+    - gh_cli_state == 'present'
+    - gh_extensions_state == 'latest'
+    - item | length > 0
+    - (item | regex_replace('^.*/', '') | lower) in (installed_extension_names | map('lower') | list)
+  register: gh_extension_update
+  changed_when: "'already up to date' not in gh_extension_update.stderr"
+  failed_when: gh_extension_update.rc != 0
