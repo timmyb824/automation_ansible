@@ -1,0 +1,9 @@
+---
+homebrew_state: present # Can be 'present' or 'absent'
+
+# Mac App Store configuration
+install_mas: false # Whether to install Mac App Store CLI
+install_slack: false # Whether to install Slack from Mac App Store
+
+# Gist base URL for package lists
+gist_base_url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw"
