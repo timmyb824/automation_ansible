@@ -1,0 +1,7 @@
+---
+# AWS CLI v2 package dependencies
+awscli_dependencies:
+  - unzip
+  - curl
+  - less  # Required for AWS CLI pager
+  - groff  # Required for AWS CLI help pages

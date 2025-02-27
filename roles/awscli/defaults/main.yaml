@@ -1,0 +1,5 @@
+---
+# should be present, absent, or latest
+awscli_state: present
+awscli_install_dir: "{{ ansible_env.HOME }}/.local/aws-cli"
+awscli_tmp_dir: "/tmp/awscli_installer"

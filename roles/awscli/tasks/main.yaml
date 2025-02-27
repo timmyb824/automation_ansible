@@ -1,0 +1,70 @@
+---
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ ansible_os_family | lower }}.yaml"
+
+- name: Install required packages (Linux)
+  become: true
+  ansible.builtin.apt:
+    name: "{{ awscli_dependencies }}"
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install AWS CLI v2 on MacOS
+  when: ansible_os_family == "Darwin"
+  block:
+    - name: Install AWS CLI v2 via Homebrew
+      community.general.homebrew:
+        name: awscli
+        state: "{{ 'absent' if awscli_state == 'absent' else 'latest' }}"
+
+- name: Install AWS CLI v2 on Linux
+  when: ansible_os_family != "Darwin"
+  block:
+    - name: Check current AWS CLI version
+      ansible.builtin.command: aws --version
+      register: aws_version
+      changed_when: false
+      failed_when: false
+
+    - name: Create temporary directory
+      ansible.builtin.file:
+        path: "{{ awscli_tmp_dir }}"
+        state: directory
+        mode: "0755"
+      when: awscli_state != "absent"
+
+    - name: Download AWS CLI v2 installer
+      ansible.builtin.get_url:
+        url: "https://awscli.amazonaws.com/awscli-exe-linux-{{ 'aarch64' if ansible_architecture == 'aarch64' else 'x86_64' }}.zip"
+        dest: "{{ awscli_tmp_dir }}/awscliv2.zip"
+        mode: "0644"
+      when: awscli_state != "absent" and (aws_version.rc != 0 or awscli_state == "latest")
+
+    - name: Extract AWS CLI v2 installer
+      ansible.builtin.unarchive:
+        src: "{{ awscli_tmp_dir }}/awscliv2.zip"
+        dest: "{{ awscli_tmp_dir }}"
+        remote_src: true
+      when: awscli_state != "absent" and (aws_version.rc != 0 or awscli_state == "latest")
+
+    - name: Install AWS CLI v2
+      ansible.builtin.command:
+        cmd: "./aws/install --bin-dir {{ ansible_env.HOME }}/.local/bin --install-dir {{ awscli_install_dir }} {{ '--update' if awscli_state == 'latest' else '' }}"
+        chdir: "{{ awscli_tmp_dir }}"
+      when: awscli_state != "absent" and (aws_version.rc != 0 or awscli_state == "latest")
+
+    - name: Uninstall AWS CLI v2
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ awscli_install_dir }}"
+        - "{{ ansible_env.HOME }}/.local/bin/aws"
+        - "{{ ansible_env.HOME }}/.local/bin/aws_completer"
+      when: awscli_state == "absent"
+
+    - name: Clean up temporary directory
+      ansible.builtin.file:
+        path: "{{ awscli_tmp_dir }}"
+        state: absent
+      when: awscli_state != "absent"

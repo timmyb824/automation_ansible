@@ -1,15 +1,15 @@
 ---
 - name: Update apt package cache
   become: true
-  apt:
-    update_cache: yes
+  ansible.builtin.apt:
+    update_cache: true
 
 - name: Fetch package list from gist
   become: false # Explicitly disable sudo for this task
-  uri:
+  ansible.builtin.uri:
     url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw/apt.list"
-    return_content: yes
-    validate_certs: yes
+    return_content: true
+    validate_certs: true
     method: GET
   register: package_list
   delegate_to: localhost
@@ -17,19 +17,19 @@
 
 - name: Parse package list
   become: false # No sudo needed for parsing
-  set_fact:
+  ansible.builtin.set_fact:
     apt_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
 
 - name: Install apt packages
   become: true
-  apt:
+  ansible.builtin.apt:
     name: "{{ apt_packages }}"
-    state: latest
-  # check_mode: yes # This will do a "dry run"
+    state: present
+  # check_mode: true # use for "dry run"
   register: package_install
 
 - name: Debug package installation
-  debug:
+  ansible.builtin.debug:
     msg:
       - "Packages to be installed: {{ apt_packages }}"
       - "Installation status: {{ package_install }}"

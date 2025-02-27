@@ -1,0 +1,23 @@
+---
+dependencies: []
+
+galaxy_info:
+  role_name: awscli
+  description: Install, update, or remove AWS CLI v2
+  author: Timothy Bryant
+  license: MIT
+  min_ansible_version: "2.1"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+    - name: MacOS
+      versions:
+        - all
+  galaxy_tags:
+    - aws
+    - awscli
+    - cloud

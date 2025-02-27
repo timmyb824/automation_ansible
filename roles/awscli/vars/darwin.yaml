@@ -1,0 +1,3 @@
+---
+# AWS CLI v2 is installed via Homebrew on MacOS, so no additional dependencies are needed
+awscli_dependencies: []
