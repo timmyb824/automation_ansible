@@ -6,17 +6,17 @@
   when: ansible_os_family == 'Darwin'
 
 - name: Install curl on Linux
-  apt:
+  ansible.builtin.apt:
     name: curl
     state: present
-    update_cache: yes
+    update_cache: true
   when:
     - ansible_os_family == 'Debian'
     - ansible_pkg_mgr == 'apt'
   become: true
 
 - name: Install pkgx on Linux
-  shell: curl -Ssf https://pkgx.sh | sh
+  ansible.builtin.shell: curl -Ssf https://pkgx.sh | sh
   args:
     creates: "/usr/local/bin/pkgx"
   when: ansible_os_family != 'Darwin'
@@ -29,17 +29,17 @@
   changed_when: false
 
 - name: Fetch pkgx package list
-  uri:
+  ansible.builtin.uri:
     url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw/pkgx_{{ ansible_system | lower }}.list"
-    return_content: yes
-    validate_certs: yes
+    return_content: true
+    validate_certs: true
     method: GET
   register: package_list
   delegate_to: localhost
   run_once: true
 
 - name: Parse package list
-  set_fact:
+  ansible.builtin.set_fact:
     pkgx_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
   when: package_list is defined and package_list.content is defined
 
@@ -76,3 +76,54 @@
     - pkgx_install is defined
     - item.failed
     - "'already installed' not in item.stderr"
+#
+# Optional tasks: Set ownership and permissions for binary targets
+# - name: Find all symlinks in /usr/local/bin that point to /usr/local/pkgs
+#   ansible.builtin.shell: |
+#     find /usr/local/bin -type l -lname '/usr/local/pkgs/*'
+#   register: pkgs_symlinks
+#   become: true
+#   changed_when: false
+#   when: ansible_os_family != 'Darwin'
+
+# - name: Get target paths for symlinks
+#   ansible.builtin.shell: |
+#     for link in $(find /usr/local/bin -type l -lname '/usr/local/pkgs/*'); do
+#       readlink -f "$link"
+#     done
+#   register: target_paths
+#   become: true
+#   changed_when: false
+#   when: ansible_os_family != 'Darwin'
+
+# - name: Set ownership and permissions for binary targets
+#   ansible.builtin.file:
+#     path: "{{ item }}"
+#     owner: "{{ ansible_user_id }}"
+#     group: "{{ ansible_user_id }}"
+#     mode: "0755"
+#   loop: "{{ target_paths.stdout_lines }}"
+#   become: true
+#   when: ansible_os_family != 'Darwin'
+
+# - name: Set ownership for symlinks in /usr/local/bin
+#   ansible.builtin.file:
+#     path: "{{ item }}"
+#     owner: "{{ ansible_user_id }}"
+#     group: "{{ ansible_user_id }}"
+#     follow: false
+#   loop: "{{ pkgs_symlinks.stdout_lines }}"
+#   become: true
+#   when: ansible_os_family != 'Darwin'
+
+# - name: Set ownership for pkgm and pkgx
+#   ansible.builtin.file:
+#     path: "/usr/local/bin/{{ item }}"
+#     owner: "{{ ansible_user_id }}"
+#     group: "{{ ansible_user_id }}"
+#     mode: "0755"
+#   loop:
+#     - pkgm
+#     - pkgx
+#   become: true
+#   when: ansible_os_family != 'Darwin'
