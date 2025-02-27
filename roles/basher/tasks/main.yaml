@@ -22,28 +22,34 @@
   failed_when: false
   changed_when: false
 
-- name: Proceed with basher installation
-  block:
-    - name: Check if basher is installed
-      ansible.builtin.stat:
-        path: "{{ ansible_env.HOME }}/.basher"
-      register: basher_check
+- name: Check if basher is installed
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/.basher"
+  register: basher_check
 
+# Installation tasks
+- name: Proceed with basher installation
+  when:
+    - git_check.rc == 0
+    - basher_state == 'present'
+  block:
     - name: Clone basher repository
       ansible.builtin.git:
         repo: https://github.com/basherpm/basher.git
         dest: "{{ ansible_env.HOME }}/.basher"
         depth: 1
+        recursive: false
       when: not basher_check.stat.exists
       register: basher_clone
       ignore_errors: true
 
-    - name: Add basher to PATH in .bashrc
-      ansible.builtin.lineinfile:
-        path: "{{ ansible_env.HOME }}/.bashrc"
-        line: 'export PATH="{{ ansible_env.HOME }}/.basher/bin:$PATH"'
-        state: present
-      when: basher_check.stat.exists or (basher_clone is defined and not basher_clone.failed)
+    # NOTE: dotfiles managed by chezmoi so this is not needed but left in case it changes
+    # - name: Add basher to PATH in .bashrc
+    #   ansible.builtin.lineinfile:
+    #     path: "{{ ansible_env.HOME }}/.bashrc"
+    #     line: 'export PATH="{{ ansible_env.HOME }}/.basher/bin:$PATH"'
+    #     state: present
+    #   when: basher_check.stat.exists or (basher_clone is defined and not basher_clone.failed)
 
     - name: Fetch basher package list from gist
       ansible.builtin.uri:
@@ -85,4 +91,71 @@
         - basher_install is defined
         - item.rc != 0
         - "'Already installed' not in item.stderr"
-  when: git_check.rc == 0 # This when condition applies to the entire block
+
+# Uninstallation tasks
+- name: Proceed with basher uninstallation
+  when:
+    - basher_state == 'absent'
+    - basher_check.stat.exists
+  block:
+    - name: Fetch basher package list for uninstallation
+      ansible.builtin.uri:
+        url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw/basher.list"
+        return_content: true
+        validate_certs: true
+        method: GET
+      register: package_list
+      delegate_to: localhost
+      run_once: true
+      ignore_errors: true
+
+    - name: Parse package list for uninstallation
+      ansible.builtin.set_fact:
+        basher_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+      when: package_list is success
+
+    - name: Uninstall basher packages
+      ansible.builtin.command: "{{ ansible_env.HOME }}/.basher/bin/basher uninstall {{ item }}"
+      loop: "{{ basher_packages | default([]) }}"
+      register: basher_uninstall
+      changed_when: true
+      failed_when: false
+      ignore_errors: true
+
+    - name: Log successful uninstallations
+      ansible.builtin.debug:
+        msg: "Successfully uninstalled package: {{ item.item }}"
+      loop: "{{ basher_uninstall.results }}"
+      when:
+        - basher_uninstall is defined
+        - item.rc == 0
+
+    - name: Log failed uninstallations
+      ansible.builtin.debug:
+        msg: "Failed to uninstall package: {{ item.item }} (Error: {{ item.stderr }})"
+      loop: "{{ basher_uninstall.results }}"
+      when:
+        - basher_uninstall is defined
+        - item.rc != 0
+
+    # NOTE: dotfiles managed by chezmoi so this is not needed but left in case it changes
+    # - name: Remove basher PATH from .bashrc
+    #   ansible.builtin.lineinfile:
+    #     path: "{{ ansible_env.HOME }}/.bashrc"
+    #     line: 'export PATH="{{ ansible_env.HOME }}/.basher/bin:$PATH"'
+    #     state: absent
+
+    - name: Run basher uninstall script
+      ansible.builtin.command: "{{ ansible_env.HOME }}/.basher/uninstall.sh"
+      register: basher_uninstall_script
+      changed_when: true
+      failed_when: false
+
+    - name: Ensure basher directories are removed
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ ansible_env.HOME }}/.basher"
+        - "{{ ansible_env.HOME }}/.local/share/basher"
+      when: basher_uninstall_script is success or basher_uninstall_script is failed # Remove dirs whether script succeeds or fails
