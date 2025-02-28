@@ -1,3 +1,7 @@
 ---
 - name: Include OS-specific tasks
   ansible.builtin.include_tasks: "{{ ansible_os_family | lower }}.yaml"
+
+- name: Include krew plugins tasks
+  ansible.builtin.include_tasks: krew_plugins.yaml
+  when: kubectl_state == 'present'

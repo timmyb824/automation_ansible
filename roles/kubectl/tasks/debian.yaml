@@ -1,4 +1,24 @@
 ---
+- name: Set target architecture
+  ansible.builtin.set_fact:
+    target_arch: >-
+      {{
+        'arm64' if ansible_architecture == 'aarch64'
+        else 'amd64' if ansible_architecture == 'x86_64'
+        else ansible_architecture
+      }}
+
+- name: Debug system information
+  ansible.builtin.debug:
+    msg: |
+      System: {{ ansible_system }}
+      Architecture: {{ ansible_architecture }}
+      Machine: {{ ansible_machine }}
+      Userspace bits: {{ ansible_userspace_bits }}
+      Virtualization type: {{ ansible_virtualization_type }}
+      Virtualization role: {{ ansible_virtualization_role }}
+      Target architecture: {{ target_arch }}
+
 - name: Check if curl is installed
   ansible.builtin.command: which curl
   register: curl_check
@@ -18,15 +38,46 @@
   changed_when: false
   failed_when: false
 
+- name: Check existing kubectl binary type
+  ansible.builtin.command: file {{ kubectl_check.stdout }}
+  register: existing_kubectl_type
+  changed_when: false
+  failed_when: false
+  when: kubectl_check.rc == 0
+
 - name: Install kubectl
-  when: kubectl_check.rc != 0
+  when: >
+    kubectl_check.rc != 0 or
+    (existing_kubectl_type.stdout is defined and
+     ('ARM' in existing_kubectl_type.stdout and target_arch == 'amd64') or
+     ('x86-64' in existing_kubectl_type.stdout and target_arch == 'arm64'))
   block:
+    - name: Remove existing kubectl binary
+      ansible.builtin.file:
+        path: /usr/local/bin/kubectl
+        state: absent
+      become: true
+
     - name: Download kubectl binary
       ansible.builtin.get_url:
-        url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
+        url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/{{ target_arch }}/kubectl"
         dest: /tmp/kubectl
         mode: "0755"
+        force: true
       register: kubectl_download
+
+    - name: Check downloaded binary type
+      ansible.builtin.command: file /tmp/kubectl
+      register: kubectl_file_type
+      changed_when: false
+
+    - name: Debug kubectl binary info
+      ansible.builtin.debug:
+        msg: |
+          Binary type: {{ kubectl_file_type.stdout }}
+          Download URL: https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/{{ target_arch }}/kubectl
+          Download path: {{ kubectl_download.dest }}
+          Changed: {{ kubectl_download.changed }}
 
     - name: Move kubectl to /usr/local/bin
       ansible.builtin.copy:
@@ -34,6 +85,7 @@
         dest: /usr/local/bin/kubectl
         mode: "0755"
         remote_src: true
+        force: true
       become: true
 
     - name: Set kubectl ownership
@@ -61,7 +113,7 @@
 
     - name: Set krew filename
       ansible.builtin.set_fact:
-        krew_filename: "krew-linux_amd64"
+        krew_filename: "krew-{{ ansible_system | lower }}_{{ target_arch }}"
 
     - name: Download krew
       ansible.builtin.get_url:
@@ -75,9 +127,16 @@
         dest: "{{ krew_temp_dir.path }}"
         remote_src: true
 
+    - name: Make krew binary executable
+      ansible.builtin.file:
+        path: "{{ krew_temp_dir.path }}/{{ krew_filename }}"
+        mode: "0755"
+
     - name: Install krew
       ansible.builtin.shell: |
-        "{{ krew_temp_dir.path }}/{{ krew_filename }}" install krew
+        ./{{ krew_filename }} install krew
+      args:
+        chdir: "{{ krew_temp_dir.path }}"
       environment:
         PATH: "{{ ansible_env.PATH }}:{{ ansible_env.HOME }}/.krew/bin"
       register: krew_install
