@@ -9,7 +9,7 @@
   ansible.builtin.apt:
     name: curl
     state: present
-    update_cache: yes
+    update_cache: true
   become: true
   when: curl_check.rc != 0
 
@@ -20,8 +20,35 @@
   become: true
   when: neovim_state == "present"
 
+- name: Set target architecture
+  ansible.builtin.set_fact:
+    target_arch: >-
+      {{
+        'arm64' if ansible_architecture == 'aarch64'
+        else 'x86_64' if ansible_architecture == 'x86_64'
+        else ansible_architecture
+      }}
+
+- name: Set neovim package name
+  ansible.builtin.set_fact:
+    neovim_package: >-
+      {{
+        'nvim-linux-arm64.tar.gz' if target_arch == 'arm64'
+        else 'nvim-linux64.tar.gz' if target_arch == 'x86_64'
+        else 'unsupported'
+      }}
+
+- name: Debug architecture information
+  ansible.builtin.debug:
+    msg: |
+      System architecture: {{ ansible_architecture }}
+      Target architecture: {{ target_arch }}
+      Neovim package: {{ neovim_package }}
+
 - name: Install Neovim from release
-  when: neovim_state == "present"
+  when:
+    - neovim_state == "present"
+    - neovim_package != "unsupported"
   block:
     - name: Create temp directory
       ansible.builtin.tempfile:
@@ -31,8 +58,8 @@
 
     - name: Download Neovim release
       ansible.builtin.get_url:
-        url: "https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.tar.gz"
-        dest: "{{ nvim_temp_dir.path }}/nvim-linux64.tar.gz"
+        url: "https://github.com/neovim/neovim/releases/download/stable/{{ neovim_package }}"
+        dest: "{{ nvim_temp_dir.path }}/{{ neovim_package }}"
         mode: "0644"
 
     - name: Remove existing Neovim directory
@@ -43,14 +70,29 @@
 
     - name: Extract Neovim to /opt
       ansible.builtin.unarchive:
-        src: "{{ nvim_temp_dir.path }}/nvim-linux64.tar.gz"
+        src: "{{ nvim_temp_dir.path }}/{{ neovim_package }}"
         dest: /opt
         remote_src: true
       become: true
 
+    - name: Set neovim directory name
+      ansible.builtin.set_fact:
+        neovim_dir: >-
+          {{
+            'nvim-linux-arm64' if target_arch == 'arm64'
+            else 'nvim-linux64' if target_arch == 'x86_64'
+            else 'unsupported'
+          }}
+
+    - name: Debug neovim paths
+      ansible.builtin.debug:
+        msg: |
+          Neovim directory: /opt/{{ neovim_dir }}
+          Binary path: /opt/{{ neovim_dir }}/bin/nvim
+
     - name: Create symlink to nvim binary
       ansible.builtin.file:
-        src: /opt/nvim-linux64/bin/nvim
+        src: "/opt/{{ neovim_dir }}/bin/nvim"
         dest: /usr/local/bin/nvim
         state: link
         force: true
