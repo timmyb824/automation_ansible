@@ -1,3 +1,7 @@
 ---
 - name: Include OS-specific tasks
   ansible.builtin.include_tasks: "{{ ansible_os_family | lower }}.yaml"
+
+- name: Include npm packages tasks
+  ansible.builtin.include_tasks: npm_packages.yaml
+  when: node_setup_state != 'absent'

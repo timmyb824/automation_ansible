@@ -1,0 +1,80 @@
+---
+- name: Initialize fnm environment
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    eval "$(fnm env --use-on-cd)"
+    echo $PATH
+  register: fnm_env
+  changed_when: false
+  args:
+    executable: /bin/bash
+
+- name: Set environment for npm commands
+  ansible.builtin.set_fact:
+    npm_env:
+      PATH: "{{ fnm_env.stdout }}:{{ ansible_env.PATH }}"
+
+- name: Verify Node.js version
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    eval "$(fnm env --use-on-cd)"
+    node --version
+  register: node_version_check
+  changed_when: false
+  failed_when: not node_version_check.stdout.startswith('v' + node_version)
+  args:
+    executable: /bin/bash
+
+- name: Verify npm is available
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    eval "$(fnm env --use-on-cd)"
+    which npm
+  register: npm_check
+  changed_when: false
+  failed_when: npm_check.rc != 0
+  args:
+    executable: /bin/bash
+
+- name: Fetch package list from gist
+  become: false
+  ansible.builtin.uri:
+    url: "{{ gist_base_url }}/npm.list"
+    return_content: yes
+    validate_certs: yes
+    method: GET
+  register: package_list
+  delegate_to: localhost
+  run_once: true
+
+- name: Parse package list
+  become: false
+  ansible.builtin.set_fact:
+    npm_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+
+- name: Get list of installed global npm packages
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    eval "$(fnm env --use-on-cd)"
+    npm list -g --depth=0
+  register: installed_packages
+  changed_when: false
+  args:
+    executable: /bin/bash
+
+- name: Install npm packages globally
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    eval "$(fnm env --use-on-cd)"
+    npm install -g {{ item }}
+  register: npm_install
+  changed_when: npm_install.rc == 0
+  failed_when:
+    - npm_install.rc != 0
+    - "'already installed' not in npm_install.stderr"
+    - "'EEXIST' not in npm_install.stderr" # Ignore file exists errors
+  loop: "{{ npm_packages }}"
+  when:
+    - item | trim != ''
+    - item not in (installed_packages.stdout | regex_findall('.*' + item + '@.*'))
+  ignore_errors: true # Continue even if some packages fail

@@ -73,3 +73,17 @@
         executable: /bin/bash
       register: node_use
       changed_when: "'now using' in node_use.stdout"
+
+    - name: Get Node.js binary path
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+        eval "$(fnm env --use-on-cd)"
+        which node
+      args:
+        executable: /bin/bash
+      register: node_path
+      changed_when: false
+
+    - name: Update PATH with Node.js location
+      ansible.builtin.set_fact:
+        ansible_env: "{{ ansible_env | combine({'PATH': node_path.stdout | dirname + ':' + ansible_env.PATH}) }}"
