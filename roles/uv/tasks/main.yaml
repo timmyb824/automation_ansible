@@ -7,11 +7,12 @@
   block:
     - name: Install uv
       ansible.builtin.shell:
-      cmd: |
-        set -o pipefail
-        curl -LsSf https://astral.sh/uv/install.sh | sh
+        cmd: |
+          set -o pipefail
+          curl -LsSf https://astral.sh/uv/install.sh | sh
       args:
         creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+        executable: /bin/bash
       register: uv_install
       changed_when: uv_install.rc == 0
 

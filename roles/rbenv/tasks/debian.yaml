@@ -24,7 +24,7 @@
 
     - name: Update apt cache
       ansible.builtin.apt:
-        update_cache: yes
+        update_cache: true
       become: true
 
     - name: Install required packages
@@ -53,16 +53,16 @@
       become: true
       changed_when: false
 
-    - name: Configure git to not verify SSL for ruby-build
-      ansible.builtin.command: git config --global http.sslVerify false
-      when: inventory_hostname in groups['vagrant']
+    # - name: Configure git to not verify SSL for ruby-build
+    #   ansible.builtin.command: git config --global http.sslVerify false
+    #   when: inventory_hostname in groups['vagrant']
 
-    - name: Set CURL_CA_BUNDLE for ruby-build
-      ansible.builtin.lineinfile:
-        path: "{{ ansible_env.HOME }}/.bashrc"
-        line: "export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
-        create: true
-      when: inventory_hostname in groups['vagrant']
+    # - name: Set CURL_CA_BUNDLE for ruby-build
+    #   ansible.builtin.lineinfile:
+    #     path: "{{ ansible_env.HOME }}/.bashrc"
+    #     line: "export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
+    #     create: true
+    #   when: inventory_hostname in groups['vagrant']
 
     - name: Set PATH to prefer /usr/bin
       ansible.builtin.lineinfile:
@@ -103,14 +103,14 @@
         path: "{{ ansible_env.HOME }}/.rbenv"
         state: absent
 
-    - name: Reset git SSL verification
-      ansible.builtin.command: git config --global --unset http.sslVerify
-      when: inventory_hostname in groups['vagrant']
-      ignore_errors: true
+    # - name: Reset git SSL verification
+    #   ansible.builtin.command: git config --global --unset http.sslVerify
+    #   when: inventory_hostname in groups['vagrant']
+    #   ignore_errors: true
 
-    - name: Remove CURL_CA_BUNDLE from bashrc
-      ansible.builtin.lineinfile:
-        path: "{{ ansible_env.HOME }}/.bashrc"
-        line: "export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
-        state: absent
-      when: inventory_hostname in groups['vagrant']
+    # - name: Remove CURL_CA_BUNDLE from bashrc
+    #   ansible.builtin.lineinfile:
+    #     path: "{{ ansible_env.HOME }}/.bashrc"
+    #     line: "export CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
+    #     state: absent
+    #   when: inventory_hostname in groups['vagrant']
