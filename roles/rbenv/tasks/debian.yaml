@@ -16,6 +16,12 @@
         - local_curl.stat.exists | default(false)
       register: curl_moved
 
+    - name: Get which curl is being used
+      ansible.builtin.command: which curl
+      register: curl_path
+      changed_when: false
+      when: inventory_hostname in groups['vagrant']
+
     - name: Update apt cache
       ansible.builtin.apt:
         update_cache: yes
@@ -58,6 +64,13 @@
         create: true
       when: inventory_hostname in groups['vagrant']
 
+    - name: Set PATH to prefer /usr/bin
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_env.HOME }}/.bashrc"
+        line: 'export PATH="/usr/bin:$PATH"'
+        create: true
+      when: inventory_hostname in groups['vagrant']
+
     - name: Download rbenv installer
       ansible.builtin.get_url:
         url: https://github.com/rbenv/rbenv-installer/raw/HEAD/bin/rbenv-installer
@@ -69,6 +82,7 @@
       ansible.builtin.shell: /tmp/rbenv-installer
       args:
         creates: "{{ ansible_env.HOME }}/.rbenv/bin/rbenv"
+        executable: /bin/bash
 
     - name: Clean up installer
       ansible.builtin.file:

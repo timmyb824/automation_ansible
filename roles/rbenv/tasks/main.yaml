@@ -5,6 +5,9 @@
 - name: Install Ruby version
   when: rbenv_state == "present"
   ansible.builtin.shell: |
+    # Source bashrc to get updated PATH and environment variables
+    source $HOME/.bashrc
+    export PATH="/usr/bin:$PATH"
     export PATH="$HOME/.rbenv/bin:$PATH"
     eval "$(rbenv init -)"
     if [ -f /etc/ssl/certs/ca-certificates.crt ]; then
@@ -21,3 +24,12 @@
   failed_when:
     - ruby_install.rc != 0
     - "'already exists' not in ruby_install.stderr"
+
+- name: Update PATH with rbenv
+  ansible.builtin.set_fact:
+    ansible_env: "{{ ansible_env | combine({'PATH': ansible_env.HOME + '/.rbenv/bin:' + ansible_env.PATH}) }}"
+  when: rbenv_state == "present"
+
+- name: Include gem packages tasks
+  ansible.builtin.include_tasks: gem_packages.yaml
+  when: rbenv_state == "present"

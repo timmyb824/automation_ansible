@@ -1,3 +1,7 @@
 ---
 rbenv_state: present  # Can be 'present' or 'absent'
 ruby_version: "3.2.2"  # Default Ruby version to install
+
+# Gem packages configuration
+gem_packages_state: present  # Can be 'present' or 'absent'
+gist_base_url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw"

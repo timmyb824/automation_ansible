@@ -1,0 +1,87 @@
+---
+- name: Initialize rbenv for Linux
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    line: 'export PATH="{{ ansible_env.HOME }}/.rbenv/bin:$PATH"'
+    state: present
+  when: ansible_os_family != "Darwin"
+
+- name: Evaluate rbenv init
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.rbenv/bin:$PATH"
+    eval "$(rbenv init -)"
+    echo $PATH
+  register: rbenv_path
+  changed_when: false
+  args:
+    executable: /bin/bash
+
+- name: Set environment for gem commands
+  ansible.builtin.set_fact:
+    gem_env:
+      PATH: "{{ rbenv_path.stdout }}:{{ ansible_env.PATH }}"
+      RBENV_VERSION: "{{ ruby_version }}"
+
+- name: Verify Ruby version
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.rbenv/bin:$PATH"
+    eval "$(rbenv init -)"
+    ruby -v
+  register: ruby_check
+  changed_when: false
+  failed_when: ruby_version not in ruby_check.stdout
+  args:
+    executable: /bin/bash
+
+- name: Check if gem is available
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.rbenv/bin:$PATH"
+    eval "$(rbenv init -)"
+    which gem
+  register: gem_check
+  changed_when: false
+  failed_when: gem_check.rc != 0
+  args:
+    executable: /bin/bash
+
+- name: Fetch package list from gist
+  become: false
+  ansible.builtin.uri:
+    url: "{{ gist_base_url }}/gem.list"
+    return_content: yes
+    validate_certs: yes
+    method: GET
+  register: package_list
+  delegate_to: localhost
+  run_once: true
+
+- name: Parse package list
+  become: false
+  ansible.builtin.set_fact:
+    gem_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+
+- name: Get list of installed gems
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.rbenv/bin:$PATH"
+    eval "$(rbenv init -)"
+    gem list --no-versions
+  register: installed_gems
+  changed_when: false
+  args:
+    executable: /bin/bash
+
+- name: Install gems
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.rbenv/bin:$PATH"
+    eval "$(rbenv init -)"
+    gem install {{ item }}
+  register: gem_install
+  changed_when: gem_install.rc == 0
+  failed_when:
+    - gem_install.rc != 0
+    - "'already installed' not in gem_install.stderr"
+  loop: "{{ gem_packages }}"
+  when:
+    - item | trim != ''
+    - item not in installed_gems.stdout_lines
+  ignore_errors: true # Continue even if some gems fail
