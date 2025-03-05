@@ -1,0 +1,102 @@
+---
+- name: Check if op CLI is installed
+  ansible.builtin.command: which op
+  register: op_check
+  changed_when: false
+  failed_when: false
+  when: op_state == "present"
+
+- name: Ensure curl is installed
+  ansible.builtin.apt:
+    name: curl
+    state: present
+    update_cache: yes
+  become: true
+  when: op_state == "present" and op_check.rc != 0
+
+- name: Add 1Password GPG key
+  ansible.builtin.shell: |
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+    gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
+  args:
+    creates: /usr/share/keyrings/1password-archive-keyring.gpg
+  become: true
+  when: op_state == "present" and op_check.rc != 0
+
+- name: Add 1Password repository
+  ansible.builtin.shell: |
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/$(dpkg --print-architecture) stable main" | \
+    tee /etc/apt/sources.list.d/1password.list
+  args:
+    creates: /etc/apt/sources.list.d/1password.list
+  become: true
+  when: op_state == "present" and op_check.rc != 0
+
+- name: Create debsig policies directory
+  ansible.builtin.file:
+    path: /etc/debsig/policies/AC2D62742012EA22
+    state: directory
+    mode: "0755"
+  become: true
+  when: op_state == "present" and op_check.rc != 0
+
+- name: Add 1Password policy
+  ansible.builtin.shell: |
+    curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol | \
+    tee /etc/debsig/policies/AC2D62742012EA22/1password.pol
+  args:
+    creates: /etc/debsig/policies/AC2D62742012EA22/1password.pol
+  become: true
+  when: op_state == "present" and op_check.rc != 0
+
+- name: Create debsig keyrings directory
+  ansible.builtin.file:
+    path: /usr/share/debsig/keyrings/AC2D62742012EA22
+    state: directory
+    mode: "0755"
+  become: true
+  when: op_state == "present" and op_check.rc != 0
+
+- name: Add debsig keyring
+  ansible.builtin.shell: |
+    curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+    gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+  args:
+    creates: /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+  become: true
+  when: op_state == "present" and op_check.rc != 0
+
+- name: Install 1Password CLI
+  ansible.builtin.apt:
+    name: 1password-cli
+    state: present
+    update_cache: yes
+  become: true
+  when: op_state == "present" and op_check.rc != 0
+
+- name: Verify 1Password CLI installation
+  when: op_state == "present" and op_check.rc != 0
+  ansible.builtin.command: which op
+  register: op_verify
+  changed_when: false
+  failed_when: op_verify.rc != 0
+
+# Uninstall tasks
+- name: Remove 1Password CLI package
+  ansible.builtin.apt:
+    name: 1password-cli
+    state: absent
+  become: true
+  when: op_state == "absent"
+
+- name: Remove 1Password repository and keys
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /etc/apt/sources.list.d/1password.list
+    - /usr/share/keyrings/1password-archive-keyring.gpg
+    - /etc/debsig/policies/AC2D62742012EA22/1password.pol
+    - /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+  become: true
+  when: op_state == "absent"

@@ -1,0 +1,32 @@
+---
+- name: Check if gitopolis is installed
+  ansible.builtin.command: which gitopolis
+  register: gitopolis_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if gitopolis is not installed
+  ansible.builtin.fail:
+    msg: "gitopolis is not installed. Please ensure it's installed via Homebrew (macOS) or pkgx (Linux)."
+  when: gitopolis_check.rc != 0
+
+- name: Check if .gitopolis.toml exists
+  ansible.builtin.stat:
+    path: "{{ gitopolis_config_path }}/.gitopolis.toml"
+  register: config_file
+
+- name: Log if .gitopolis.toml is not found
+  ansible.builtin.debug:
+    msg: "Skipping gitopolis role - No .gitopolis.toml file found at {{ gitopolis_config_path }}"
+  when: not config_file.stat.exists
+
+- name: Clone repositories with gitopolis
+  ansible.builtin.command: gitopolis clone
+  args:
+    chdir: "{{ gitopolis_config_path }}"
+  register: gitopolis_clone
+  changed_when: gitopolis_clone.rc == 0
+  failed_when: gitopolis_clone.rc != 0
+  when:
+    - gitopolis_state != 'absent'
+    - config_file.stat.exists

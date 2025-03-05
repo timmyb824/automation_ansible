@@ -1,0 +1,6 @@
+---
+# Default state for repository management
+ghq_repos_state: present # Can be 'present' or 'absent'
+
+# Gist base URL for repository lists
+gist_base_url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw"

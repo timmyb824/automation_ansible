@@ -1,0 +1,5 @@
+---
+micro_plugins_state: latest # Can be 'present', 'latest', or 'absent'
+
+# Gist base URL for package lists
+gist_base_url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw"

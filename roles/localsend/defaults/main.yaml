@@ -1,0 +1,5 @@
+---
+# Note: Only supports x86_64/amd64 architecture. Will fail on ARM.
+localsend_state: present
+localsend_version: "1.14.0"
+localsend_deb_url: "https://github.com/localsend/localsend/releases/download/v{{ localsend_version }}/LocalSend-{{ localsend_version }}-linux-x86-64.deb"

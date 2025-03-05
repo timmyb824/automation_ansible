@@ -1,0 +1,65 @@
+---
+- name: Debug architecture info
+  ansible.builtin.debug:
+    msg:
+      - "Ansible architecture: {{ ansible_architecture }}"
+      - "Selected arch: {{ fastfetch_arch }}"
+      - "Archive URL: {{ fastfetch_archive_url }}"
+
+- name: Check if fastfetch is installed
+  ansible.builtin.command: which fastfetch
+  register: fastfetch_check
+  changed_when: false
+  failed_when: false
+
+- name: Get current fastfetch version
+  ansible.builtin.command: fastfetch --version
+  register: fastfetch_current_version
+  changed_when: false
+  failed_when: false
+  when: fastfetch_check.rc == 0
+
+- name: Set install needed fact
+  ansible.builtin.set_fact:
+    fastfetch_install_needed: >-
+      {{ fastfetch_state != 'absent' and
+         (fastfetch_check.rc != 0 or
+          (fastfetch_current_version.stdout | default('') is not search(fastfetch_version))) }}
+
+- name: Create temporary directory
+  when: fastfetch_install_needed
+  ansible.builtin.file:
+    path: "/tmp/fastfetch_install"
+    state: directory
+    mode: "0755"
+
+- name: Download and extract fastfetch archive
+  when: fastfetch_install_needed
+  ansible.builtin.unarchive:
+    src: "{{ fastfetch_archive_url }}"
+    dest: "/tmp/fastfetch_install"
+    remote_src: true
+    mode: "0755"
+
+- name: Install fastfetch binary
+  when: fastfetch_install_needed
+  ansible.builtin.copy:
+    src: "/tmp/fastfetch_install/fastfetch-linux-{{ fastfetch_arch }}/usr/bin/fastfetch"
+    dest: "{{ fastfetch_bin_path }}"
+    mode: "0755"
+    remote_src: true
+    force: true
+  become: true
+
+- name: Remove fastfetch binary
+  when: fastfetch_state == "absent"
+  ansible.builtin.file:
+    path: "{{ fastfetch_bin_path }}"
+    state: absent
+  become: true
+
+- name: Cleanup temporary directory
+  when: fastfetch_install_needed
+  ansible.builtin.file:
+    path: "/tmp/fastfetch_install"
+    state: absent

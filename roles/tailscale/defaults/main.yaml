@@ -1,0 +1,14 @@
+---
+tailscale_state: present
+
+# Tailscale configuration
+tailscale_accept_routes: true
+tailscale_accept_dns: true
+tailscale_operator: "{{ ansible_user }}"
+
+# macOS specific
+mas_cli_state: present
+tailscale_mas_id: 1475387142 # Mac App Store ID for Tailscale
+
+# Linux specific
+tailscale_repo_url: "https://pkgs.tailscale.com/stable"

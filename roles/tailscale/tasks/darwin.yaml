@@ -1,0 +1,33 @@
+---
+- name: Verify Homebrew is installed
+  ansible.builtin.command: which brew
+  register: brew_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if Homebrew is not installed
+  ansible.builtin.fail:
+    msg: "Homebrew is required but not installed. Please install Homebrew first."
+  when: brew_check.rc != 0
+
+- name: Install mas-cli
+  community.general.homebrew:
+    name: mas
+    state: "{{ mas_cli_state }}"
+  when: tailscale_state == "present"
+
+- name: Check if Tailscale is installed via Mac App Store
+  ansible.builtin.command: mas list
+  register: mas_list
+  changed_when: false
+
+- name: Install Tailscale via Mac App Store
+  ansible.builtin.command: "mas install {{ tailscale_mas_id }}"
+  when:
+    - tailscale_state == "present"
+    - mas_list.stdout is not search('Tailscale')
+
+- name: Notify user about manual steps
+  ansible.builtin.debug:
+    msg: "Tailscale has been installed. Please start Tailscale manually from your Applications folder and complete the authentication process."
+  when: tailscale_state == "present"

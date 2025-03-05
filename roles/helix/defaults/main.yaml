@@ -1,0 +1,61 @@
+---
+# Installation state
+helix_state: present
+
+# Version management
+helix_install_method: source # Can be 'source' or 'package'
+helix_use_ghq: false # Whether to use ghq for git repos
+
+# Source installation paths
+helix_source_dir: "{{ ansible_env.HOME }}/helix"
+helix_bin_dir: "{{ ansible_env.HOME }}/.local/bin"
+
+# Language servers and tools versions
+helix_npm_packages:
+  - name: "bun"
+    version: "1.0.28"
+  - name: "@ansible/ansible-language-server"
+  - name: "dockerfile-language-server-nodejs"
+  - name: "@microsoft/compose-language-service"
+  - name: "pyright"
+  - name: "yaml-language-server"
+    version: "next"
+  - name: "typescript"
+  - name: "typescript-language-server"
+  - name: "vscode-langservers-extracted"
+    version: "4.8"
+  - name: "prettier"
+  - name: "bash-language-server"
+
+helix_pip_packages:
+  - "pylyzer"
+  - "black"
+  - "yamllint"
+  - "beautysh"
+
+helix_go_packages:
+  - "golang.org/x/tools/gopls@latest"
+  - "github.com/go-delve/delve/cmd/dlv@latest"
+  - "golang.org/x/tools/cmd/goimports@latest"
+  - "github.com/nametake/golangci-lint-langserver@latest"
+  - "github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+  - "github.com/google/yamlfmt/cmd/yamlfmt@latest"
+
+# System-specific packages
+helix_marksman_version: "2024-12-18"
+helix_terraform_ls_version: "0.36.3"
+
+# Additional tools
+helix_install_gpt: true # Whether to install helix-gpt
+helix_install_rust_components: true # Whether to install rust components
+helix_install_ruby_components: true # Whether to install ruby components
+
+# Cargo packages
+helix_cargo_packages:
+  - "taplo-cli"
+  - "stylua"
+
+# Ruby packages
+helix_ruby_packages:
+  - "solargraph"
+  - "rubocop"

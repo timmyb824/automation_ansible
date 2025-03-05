@@ -1,0 +1,3 @@
+---
+gitopolis_state: present # Can be 'present' or 'absent'
+gitopolis_config_path: "{{ ansible_env.HOME }}/DEV/homelab"

@@ -1,0 +1,52 @@
+---
+- name: Install superfile
+  become: true
+  block:
+    - name: Download and install binary
+      ansible.builtin.shell: |
+        curl -fsSL {{ superfile_install_url }} | bash
+      args:
+        creates: "/usr/local/bin/spf"
+      register: spf_install
+
+    - name: Check if spf binary exists
+      ansible.builtin.stat:
+        path: /usr/local/bin/spf
+      register: spf_binary
+
+    - name: Ensure correct ownership and permissions
+      ansible.builtin.file:
+        path: /usr/local/bin/spf
+        mode: "0755"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      when: spf_binary.stat.exists
+  when: superfile_state == 'present'
+
+- name: Update superfile
+  become: true
+  block:
+    - name: Download and update binary
+      ansible.builtin.shell: |
+        curl -fsSL {{ superfile_update_url }} | bash
+
+    - name: Check if spf binary exists after update
+      ansible.builtin.stat:
+        path: /usr/local/bin/spf
+      register: spf_binary_updated
+
+    - name: Ensure correct ownership and permissions after update
+      ansible.builtin.file:
+        path: /usr/local/bin/spf
+        mode: "0755"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      when: spf_binary_updated.stat.exists
+  when: superfile_state == 'latest'
+
+- name: Uninstall superfile
+  become: true
+  ansible.builtin.file:
+    path: "/usr/local/bin/spf"
+    state: absent
+  when: superfile_state == 'absent'

@@ -13,6 +13,9 @@
       PATH: "{{ ansible_env.HOME }}/.cargo/bin:{{ ansible_env.PATH }}"
       CARGO_HOME: "{{ ansible_env.HOME }}/.cargo"
       RUSTUP_HOME: "{{ ansible_env.HOME }}/.rustup"
+      CARGO_INCREMENTAL: "{{ 1 if cargo_incremental | default(true) else 0 }}"
+      RUSTC_WRAPPER: "{{ 'sccache' if cargo_use_sccache | default(false) else '' }}"
+      CARGO_BUILD_JOBS: "{{ ansible_processor_vcpus }}"
 
 - name: Source cargo environment
   ansible.builtin.shell: |
@@ -88,7 +91,7 @@
       when: zellij_check.rc == 0 or zellij_install is defined
 
 - name: Install standard cargo packages
-  ansible.builtin.shell: "cargo install {{ item }}"
+  ansible.builtin.shell: "cargo install {{ '--jobs=' + cargo_jobs | string if cargo_parallel_install | default(false) else '' }} {{ item }}"
   register: cargo_install
   loop: "{{ cargo_packages | default([]) | select('match', '^(?!--git|--locked).*$') | reject('search', 'zellij') | list if (ansible_architecture == 'aarch64' and ansible_system == 'Linux') else cargo_packages | default([]) | select('match', '^(?!--git|--locked).*$') | list }}"
   environment: "{{ cargo_env }}"
@@ -99,7 +102,7 @@
   when: cargo_check.rc == 0 or source_cargo.rc == 0
 
 - name: Install git-based cargo packages
-  ansible.builtin.shell: "cargo install --git {{ item | regex_replace('^--git\\s+', '') }}"
+  ansible.builtin.shell: "cargo install {{ '--jobs=' + cargo_jobs | string if cargo_parallel_install | default(false) else '' }} --git {{ item | regex_replace('^--git\\s+', '') }}"
   register: cargo_git_install
   loop: "{{ cargo_packages | default([]) | select('match', '^--git') | list }}"
   environment: "{{ cargo_env }}"
@@ -110,7 +113,7 @@
   when: cargo_packages is defined
 
 - name: Install locked cargo packages
-  ansible.builtin.shell: "cargo install {{ item }}"
+  ansible.builtin.shell: "cargo install {{ '--jobs=' + cargo_jobs | string if cargo_parallel_install | default(false) else '' }} {{ item }}"
   register: cargo_locked_install
   loop: "{{ cargo_packages | default([]) | select('match', '^--locked') | reject('search', 'zellij') | list if (ansible_architecture == 'aarch64' and ansible_system == 'Linux') else cargo_packages | default([]) | select('match', '^--locked') | list }}"
   environment: "{{ cargo_env }}"

@@ -1,0 +1,41 @@
+---
+- name: Install Helm
+  when: helm_state == 'present'
+  block:
+    - name: Create temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: helm
+      register: temp_dir
+
+    - name: Download Helm
+      ansible.builtin.get_url:
+        url: "https://get.helm.sh/helm-v{{ helm_version }}-linux-{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}.tar.gz"
+        dest: "{{ temp_dir.path }}/helm.tar.gz"
+        mode: "0644"
+
+    - name: Extract Helm archive
+      ansible.builtin.unarchive:
+        src: "{{ temp_dir.path }}/helm.tar.gz"
+        dest: "{{ temp_dir.path }}"
+        remote_src: true
+
+    - name: Install Helm binary
+      become: true
+      ansible.builtin.copy:
+        src: "{{ temp_dir.path }}/linux-{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}/helm"
+        dest: "{{ helm_install_dir }}/helm"
+        mode: "0755"
+        remote_src: true
+
+    - name: Clean up temporary directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
+        state: absent
+
+- name: Uninstall Helm
+  when: helm_state == 'absent'
+  become: true
+  ansible.builtin.file:
+    path: "{{ helm_install_dir }}/helm"
+    state: absent

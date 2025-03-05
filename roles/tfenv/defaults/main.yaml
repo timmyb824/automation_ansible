@@ -1,0 +1,5 @@
+---
+tfenv_state: present # Can be 'present' or 'absent'
+
+# Default Terraform version to install
+tf_version: "latest"

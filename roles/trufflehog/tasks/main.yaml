@@ -1,0 +1,41 @@
+---
+- name: Install trufflehog
+  when: trufflehog_state == 'present'
+  block:
+    - name: Create temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: trufflehog
+      register: temp_dir
+
+    - name: Download trufflehog
+      ansible.builtin.get_url:
+        url: "https://github.com/trufflesecurity/trufflehog/releases/download/v{{ trufflehog_version }}/trufflehog_{{ trufflehog_version }}_linux_{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}.tar.gz"
+        dest: "{{ temp_dir.path }}/trufflehog.tar.gz"
+        mode: "0644"
+
+    - name: Extract trufflehog archive
+      ansible.builtin.unarchive:
+        src: "{{ temp_dir.path }}/trufflehog.tar.gz"
+        dest: "{{ temp_dir.path }}"
+        remote_src: true
+
+    - name: Install trufflehog binary
+      become: true
+      ansible.builtin.copy:
+        src: "{{ temp_dir.path }}/trufflehog"
+        dest: "{{ trufflehog_install_dir }}/trufflehog"
+        mode: "0755"
+        remote_src: true
+
+    - name: Clean up temporary directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
+        state: absent
+
+- name: Uninstall trufflehog
+  when: trufflehog_state == 'absent'
+  become: true
+  ansible.builtin.file:
+    path: "{{ trufflehog_install_dir }}/trufflehog"
+    state: absent

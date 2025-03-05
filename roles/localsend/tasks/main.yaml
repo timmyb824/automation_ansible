@@ -1,0 +1,62 @@
+---
+# Note: This role only supports x86_64 architecture
+- name: Check system architecture for LocalSend compatibility
+  ansible.builtin.debug:
+    msg: "LocalSend installation will be skipped - architecture {{ ansible_architecture }} is not supported (only x86_64 is supported)"
+  when: ansible_architecture != 'x86_64'
+
+- name: Install and configure LocalSend
+  when: ansible_architecture == 'x86_64'
+  block:
+    - name: Check if localsend is installed
+      ansible.builtin.command: which localsend
+      register: localsend_check
+      changed_when: false
+      failed_when: false
+
+    - name: Get current localsend version
+      ansible.builtin.shell: localsend --version | grep -oP '(?<=LocalSend )\d+\.\d+\.\d+'
+      register: localsend_current_version
+      changed_when: false
+      failed_when: false
+      when: localsend_check.rc == 0
+
+    - name: Set install needed fact
+      ansible.builtin.set_fact:
+        localsend_install_needed: >-
+          {{ localsend_state != 'absent' and
+             (localsend_check.rc != 0 or
+              (localsend_current_version.stdout | default('') != localsend_version)) }}
+
+    - name: Create temporary directory
+      when: localsend_install_needed
+      ansible.builtin.file:
+        path: "/tmp/localsend_install"
+        state: directory
+        mode: "0755"
+
+    - name: Download LocalSend
+      when: localsend_install_needed
+      ansible.builtin.get_url:
+        url: "https://github.com/localsend/localsend/releases/download/v{{ localsend_version }}/localsend_app_{{ localsend_version }}_linux_x86_64.deb"
+        dest: "/tmp/localsend_install/localsend.deb"
+        mode: "0644"
+
+    - name: Install LocalSend
+      when: localsend_install_needed
+      become: true
+      ansible.builtin.apt:
+        deb: "/tmp/localsend_install/localsend.deb"
+        state: present
+
+    - name: Cleanup temporary directory
+      ansible.builtin.file:
+        path: "/tmp/localsend_install"
+        state: absent
+
+    - name: Uninstall LocalSend
+      when: localsend_state == "absent"
+      become: true
+      ansible.builtin.apt:
+        name: localsend
+        state: absent

@@ -40,8 +40,8 @@
   become: false
   ansible.builtin.uri:
     url: "{{ gist_base_url }}/npm.list"
-    return_content: yes
-    validate_certs: yes
+    return_content: true
+    validate_certs: true
     method: GET
   register: package_list
   delegate_to: localhost

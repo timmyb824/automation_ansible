@@ -1,46 +1,46 @@
 ---
 - name: Check if rustup is installed
-  command: which rustup
+  ansible.builtin.command: which rustup
   register: rustup_check
   failed_when: false
   changed_when: false
 
 - name: Download rustup installer
-  get_url:
-    url: https://sh.rustup.rs
-    dest: /tmp/rustup-init.sh
+  ansible.builtin.get_url:
+    url: "https://static.rust-lang.org/rustup/dist/{{ ansible_architecture }}-unknown-linux-gnu/rustup-init"
+    dest: /tmp/rustup-init
     mode: "0755"
   when: rustup_check.rc != 0
   register: download_rustup
 
 - name: Install rustup
-  shell: /tmp/rustup-init.sh -y
+  ansible.builtin.shell: /tmp/rustup-init -y
   register: rustup_install
-  when: download_rustup is changed
+  when: rustup_check.rc != 0
   args:
     creates: "{{ ansible_env.HOME }}/.cargo/bin/rustup"
 
 - name: Log rustup installation status
-  debug:
+  ansible.builtin.debug:
     msg: "{{ 'rustup installed successfully' if rustup_install is changed else 'rustup is already installed' }}"
 
 - name: Install Rust dependencies (Linux only)
+  when: ansible_os_family == "Debian"
+  become: true
   block:
     - name: Install build-essential
       apt:
         name: build-essential
         state: present
-        update_cache: yes
+        update_cache: true
       register: rust_deps
 
     - name: Log Rust dependencies installation status
       debug:
         msg: "{{ 'Rust dependencies installed successfully' if rust_deps is changed else 'Rust dependencies were already installed' }}"
-  when: ansible_os_family == "Debian"
-  become: true
 
 - name: Clean up rustup installer
-  file:
-    path: /tmp/rustup-init.sh
+  ansible.builtin.file:
+    path: /tmp/rustup-init
     state: absent
   when: download_rustup is changed

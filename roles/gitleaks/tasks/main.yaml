@@ -1,0 +1,41 @@
+---
+- name: Install gitleaks
+  when: gitleaks_state == 'present'
+  block:
+    - name: Create temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: gitleaks
+      register: temp_dir
+
+    - name: Download gitleaks
+      ansible.builtin.get_url:
+        url: "https://github.com/gitleaks/gitleaks/releases/download/v{{ gitleaks_version }}/gitleaks_{{ gitleaks_version }}_linux_{{ 'arm64' if ansible_architecture == 'aarch64' else 'x64' }}.tar.gz"
+        dest: "{{ temp_dir.path }}/gitleaks.tar.gz"
+        mode: "0644"
+
+    - name: Extract gitleaks archive
+      ansible.builtin.unarchive:
+        src: "{{ temp_dir.path }}/gitleaks.tar.gz"
+        dest: "{{ temp_dir.path }}"
+        remote_src: true
+
+    - name: Install gitleaks binary
+      become: true
+      ansible.builtin.copy:
+        src: "{{ temp_dir.path }}/gitleaks"
+        dest: "{{ gitleaks_install_dir }}/gitleaks"
+        mode: "0755"
+        remote_src: true
+
+    - name: Clean up temporary directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
+        state: absent
+
+- name: Uninstall gitleaks
+  when: gitleaks_state == 'absent'
+  become: true
+  ansible.builtin.file:
+    path: "{{ gitleaks_install_dir }}/gitleaks"
+    state: absent

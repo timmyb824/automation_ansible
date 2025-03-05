@@ -1,0 +1,4 @@
+---
+gitleaks_version: "8.18.1"
+gitleaks_state: present
+gitleaks_install_dir: /usr/local/bin

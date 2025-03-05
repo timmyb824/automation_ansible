@@ -1,0 +1,6 @@
+---
+dependencies:
+  - role: apt_packages
+    when: ansible_os_family != "Darwin"
+  - role: homebrew
+    when: ansible_os_family == "Darwin"

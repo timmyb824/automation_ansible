@@ -1,0 +1,57 @@
+---
+- name: Check system compatibility
+  ansible.builtin.set_fact:
+    teller_supported: "{{ (ansible_system == 'Linux' and ansible_architecture == 'x86_64') or (ansible_system == 'Darwin' and ansible_architecture == 'aarch64') }}"
+
+- name: Warn if system is not supported
+  ansible.builtin.debug:
+    msg: "Teller installation is not supported on {{ ansible_system }} {{ ansible_architecture }}. Only Linux x86_64 and macOS ARM64 are supported."
+  when: not teller_supported
+
+- name: Install teller
+  when:
+    - teller_state == 'present'
+    - teller_supported
+  block:
+    - name: Create temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: teller
+      register: temp_dir
+
+    - name: Set archive name based on system
+      ansible.builtin.set_fact:
+        teller_archive: "{{ 'teller-x86_64-linux.tar.xz' if ansible_system == 'Linux' else 'teller-aarch64-macos.tar.xz' }}"
+        teller_binary_path: "{{ 'teller-x86_64-linux/teller' if ansible_system == 'Linux' else 'teller-aarch64-macos/teller' }}"
+
+    - name: Download teller
+      ansible.builtin.get_url:
+        url: "https://github.com/tellerops/teller/releases/download/v{{ teller_version }}/{{ teller_archive }}"
+        dest: "{{ temp_dir.path }}/teller.tar.xz"
+        mode: "0644"
+
+    - name: Extract teller archive
+      ansible.builtin.unarchive:
+        src: "{{ temp_dir.path }}/teller.tar.xz"
+        dest: "{{ temp_dir.path }}"
+        remote_src: true
+
+    - name: Install teller binary
+      become: true
+      ansible.builtin.copy:
+        src: "{{ temp_dir.path }}/{{ teller_binary_path }}"
+        dest: "{{ teller_install_dir }}/teller"
+        mode: "0755"
+        remote_src: true
+
+    - name: Clean up temporary directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
+        state: absent
+
+- name: Uninstall teller
+  when: teller_state == 'absent'
+  become: true
+  ansible.builtin.file:
+    path: "{{ teller_install_dir }}/teller"
+    state: absent

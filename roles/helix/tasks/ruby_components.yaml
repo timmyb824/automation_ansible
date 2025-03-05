@@ -1,0 +1,7 @@
+---
+- name: Install Ruby components
+  when: helix_install_ruby_components
+  ansible.builtin.gem:
+    name: ruby-lsp
+    user_install: true
+    state: present

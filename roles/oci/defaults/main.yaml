@@ -1,0 +1,3 @@
+---
+oci_state: present
+oci_install_url: "https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh"

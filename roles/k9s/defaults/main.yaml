@@ -1,0 +1,4 @@
+---
+k9s_version: "0.31.9"
+k9s_state: present
+k9s_install_dir: /usr/local/bin

@@ -1,0 +1,15 @@
+---
+- name: Install Rust components
+  when: helix_install_rust_components
+  block:
+    - name: Add rust-analyzer component
+      ansible.builtin.command:
+        cmd: rustup component add rust-analyzer
+      register: rust_analyzer_result
+      changed_when: rust_analyzer_result.rc == 0
+
+    - name: Install erg
+      ansible.builtin.command:
+        cmd: cargo install erg
+      register: erg_result
+      changed_when: erg_result.rc == 0

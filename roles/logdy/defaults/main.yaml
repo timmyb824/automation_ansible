@@ -1,0 +1,4 @@
+---
+logdy_version: "0.12.0" # Latest stable version as of March 2024
+logdy_state: present
+logdy_install_dir: /usr/local/bin

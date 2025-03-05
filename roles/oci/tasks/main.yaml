@@ -1,0 +1,91 @@
+---
+- name: Install OCI CLI
+  when: oci_state == 'present' or oci_state == 'latest'
+  block:
+    - name: Ensure Python dependencies are installed (Debian)
+      become: true
+      ansible.builtin.apt:
+        name:
+          - python3-distutils
+        state: present
+        update_cache: true
+      when: ansible_os_family == "Debian"
+
+    - name: Download OCI CLI installer
+      ansible.builtin.get_url:
+        url: "{{ oci_install_url }}"
+        dest: "/tmp/install_oci.sh"
+        mode: "0755"
+
+    - name: Create install directory
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.local/oracle-cli"
+        state: directory
+        mode: "0755"
+
+    - name: Create .local/bin directory
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    - name: Run OCI CLI installer
+      become: true
+      ansible.builtin.shell: |
+        bash /tmp/install_oci.sh \
+          --no-tty \
+          --install-dir {{ ansible_env.HOME }}/.local/oracle-cli \
+          --script-dir {{ ansible_env.HOME }}/.local/oracle-cli/oci-cli-scripts \
+          --accept-all-defaults
+      args:
+        creates: "{{ ansible_env.HOME }}/.local/oracle-cli/bin/oci"
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+        NO_TTY_REQUIRED: "true"
+      register: install_output
+      ignore_errors: true
+
+    - name: Debug - Show installer output
+      ansible.builtin.debug:
+        var: install_output
+
+    - name: Debug - Check directory structure
+      ansible.builtin.shell: |
+        echo "=== Oracle CLI directory ==="
+        ls -la {{ ansible_env.HOME }}/.local/oracle-cli || true
+        echo "=== Oracle CLI bin directory ==="
+        ls -la {{ ansible_env.HOME }}/.local/bin || true
+        echo "=== Python info ==="
+        which python3
+        python3 --version
+      register: dir_check
+      ignore_errors: true
+
+    - name: Debug - Show directory structure
+      ansible.builtin.debug:
+        var: dir_check
+
+    - name: Clean up installer file
+      ansible.builtin.file:
+        path: "/tmp/install_oci.sh"
+        state: absent
+      when: install_output is success
+
+    - name: Create user-level symlink for OCI CLI
+      ansible.builtin.file:
+        src: "{{ ansible_env.HOME }}/.local/oracle-cli/bin/oci"
+        dest: "{{ ansible_env.HOME }}/.local/bin/oci"
+        state: link
+        force: true
+      when: install_output is success
+
+- name: Uninstall OCI CLI
+  when: oci_state == 'absent'
+  block:
+    - name: Remove OCI CLI directory
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ ansible_env.HOME }}/.local/oracle-cli"
+        - "{{ ansible_env.HOME }}/.local/bin/oci"

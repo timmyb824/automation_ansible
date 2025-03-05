@@ -1,0 +1,44 @@
+---
+- name: Install Zsh
+  block:
+    - name: Check if Zsh is installed
+      ansible.builtin.command: which zsh
+      register: zsh_check
+      changed_when: false
+      failed_when: false
+
+    - name: Update apt cache (Debian/Ubuntu)
+      ansible.builtin.apt:
+        update_cache: yes
+      become: true
+      when:
+        - ansible_os_family == "Debian"
+        - zsh_check.rc != 0
+
+    - name: Install Zsh package
+      ansible.builtin.package:
+        name: zsh
+        state: "{{ zsh_state }}"
+      become: true
+      when: zsh_check.rc != 0
+
+- name: Get current shell
+  ansible.builtin.command: getent passwd {{ ansible_user_id }}
+  register: current_shell
+  changed_when: false
+
+- name: Get Zsh path
+  ansible.builtin.command: which zsh
+  register: zsh_path
+  changed_when: false
+  when: "'zsh' not in current_shell.stdout"
+
+- name: Change default shell to Zsh
+  ansible.builtin.user:
+    name: "{{ ansible_user_id }}"
+    shell: "{{ zsh_path.stdout }}"
+  become: true
+  when:
+    - "'zsh' not in current_shell.stdout"
+    - zsh_path.stdout is defined
+    - zsh_path.stdout != ""

@@ -1,0 +1,55 @@
+---
+- name: Install system-specific packages (Linux)
+  when: ansible_system == "Linux"
+  block:
+    - name: Create temp directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: helix
+      register: temp_dir
+
+    - name: Install marksman
+      block:
+        - name: Download marksman
+          ansible.builtin.get_url:
+            url: "https://github.com/artempyanykh/marksman/releases/download/{{ helix_marksman_version }}/marksman-linux-{{ 'arm64' if ansible_architecture == 'aarch64' else 'x64' }}"
+            dest: "{{ temp_dir.path }}/marksman"
+            mode: "0755"
+
+        - name: Install marksman
+          ansible.builtin.copy:
+            src: "{{ temp_dir.path }}/marksman"
+            dest: "{{ helix_bin_dir }}/marksman"
+            mode: "0755"
+            remote_src: true
+
+    - name: Install terraform-ls
+      block:
+        - name: Download terraform-ls
+          ansible.builtin.get_url:
+            url: "https://releases.hashicorp.com/terraform-ls/{{ helix_terraform_ls_version }}/terraform-ls_{{ helix_terraform_ls_version }}_linux_{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}.zip"
+            dest: "{{ temp_dir.path }}/terraform-ls.zip"
+
+        - name: Extract terraform-ls
+          ansible.builtin.unarchive:
+            src: "{{ temp_dir.path }}/terraform-ls.zip"
+            dest: "{{ temp_dir.path }}"
+            remote_src: true
+
+        - name: Install terraform-ls
+          ansible.builtin.copy:
+            src: "{{ temp_dir.path }}/terraform-ls"
+            dest: "{{ helix_bin_dir }}/terraform-ls"
+            mode: "0755"
+            remote_src: true
+
+    - name: Install taplo
+      ansible.builtin.command:
+        cmd: cargo install taplo-cli --locked --features lsp
+      register: taplo_result
+      changed_when: taplo_result.rc == 0
+
+    - name: Cleanup temp directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
+        state: absent

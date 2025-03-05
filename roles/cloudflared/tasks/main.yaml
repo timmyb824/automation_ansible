@@ -1,0 +1,56 @@
+---
+- name: Install cloudflared (Debian)
+  when: ansible_os_family == "Debian"
+  block:
+    - name: Add Cloudflare GPG key
+      become: true
+      ansible.builtin.get_url:
+        url: "{{ cloudflared_key_url }}"
+        dest: "{{ cloudflared_key_path }}"
+        mode: "0644"
+
+    - name: Add Cloudflare repository
+      become: true
+      ansible.builtin.apt_repository:
+        repo: "{{ cloudflared_repo_line }}"
+        state: present
+        filename: cloudflared
+        update_cache: true
+
+    - name: Install cloudflared package
+      become: true
+      ansible.builtin.apt:
+        name: cloudflared
+        state: "{{ cloudflared_state }}"
+        update_cache: true
+
+- name: Install cloudflared (Darwin)
+  when: ansible_os_family == "Darwin"
+  community.general.homebrew:
+    name: cloudflare/cloudflare/cloudflared
+    state: "{{ cloudflared_state }}"
+
+- name: Remove cloudflared (Debian)
+  when:
+    - ansible_os_family == "Debian"
+    - cloudflared_state == "absent"
+  block:
+    - name: Remove cloudflared package
+      become: true
+      ansible.builtin.apt:
+        name: cloudflared
+        state: absent
+        purge: true
+
+    - name: Remove Cloudflare repository
+      become: true
+      ansible.builtin.apt_repository:
+        repo: "{{ cloudflared_repo_line }}"
+        state: absent
+        filename: cloudflared
+
+    - name: Remove Cloudflare GPG key
+      become: true
+      ansible.builtin.file:
+        path: "{{ cloudflared_key_path }}"
+        state: absent

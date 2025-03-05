@@ -1,0 +1,4 @@
+---
+dependencies:
+  - role: node_setup
+    when: helix_state == "present"

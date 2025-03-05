@@ -1,0 +1,4 @@
+---
+superfile_state: present
+superfile_install_url: "https://superfile.netlify.app/install.sh"
+superfile_update_url: "https://superfile.netlify.app/update.sh"

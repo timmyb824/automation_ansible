@@ -1,0 +1,4 @@
+---
+helm_version: "3.14.2"
+helm_state: present
+helm_install_dir: /usr/local/bin

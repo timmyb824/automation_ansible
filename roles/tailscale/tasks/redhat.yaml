@@ -1,0 +1,6 @@
+---
+- name: Install Tailscale package
+  ansible.builtin.dnf:
+    name: tailscale
+    state: "{{ tailscale_state }}"
+  become: true

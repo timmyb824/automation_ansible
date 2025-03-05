@@ -1,0 +1,121 @@
+---
+- name: Install required packages (Linux)
+  become: true
+  ansible.builtin.apt:
+    name:
+      - git
+      - curl
+      - unzip
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Install Homebrew if not present (MacOS)
+  ansible.builtin.shell:
+    cmd: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  args:
+    creates: /usr/local/bin/brew
+  when: ansible_os_family == "Darwin"
+
+- name: Install tfenv via Homebrew (MacOS)
+  community.general.homebrew:
+    name: tfenv
+    state: present
+  when: ansible_os_family == "Darwin"
+
+- name: Set Linux installation tasks
+  when: ansible_os_family != "Darwin"
+  become_user: "{{ ansible_user_id }}"
+  block:
+    - name: Check if git is installed
+      ansible.builtin.command: which git
+      register: git_check
+      failed_when: false
+      changed_when: false
+
+    - name: Fail if git is not installed
+      ansible.builtin.fail:
+        msg: "git not found. Please install git first."
+      when: git_check.rc != 0
+
+    - name: Clone tfenv repository
+      ansible.builtin.git:
+        repo: https://github.com/tfutils/tfenv.git
+        dest: "{{ ansible_env.HOME }}/.tfenv"
+        depth: 1
+      environment:
+        TMPDIR: "{{ ansible_env.HOME }}"
+
+    - name: Create local bin directory
+      ansible.builtin.file:
+        path: "{{ ansible_env.HOME }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    - name: Create symlinks for tfenv binaries
+      ansible.builtin.file:
+        src: "{{ ansible_env.HOME }}/.tfenv/bin/{{ item }}"
+        dest: "{{ ansible_env.HOME }}/.local/bin/{{ item }}"
+        state: link
+      loop:
+        - tfenv
+        - terraform
+
+    # - name: Add tfenv bin directory to PATH in .bashrc
+    #   ansible.builtin.lineinfile:
+    #     path: "{{ ansible_env.HOME }}/.bashrc"
+    #     line: 'export PATH="$HOME/.local/bin:$PATH"'
+    #     state: present
+
+    # - name: Add tfenv bin directory to PATH in .zshrc if exists
+    #   ansible.builtin.lineinfile:
+    #     path: "{{ ansible_env.HOME }}/.zshrc"
+    #     line: 'export PATH="$HOME/.local/bin:$PATH"'
+    #     state: present
+    #   when: lookup('file', ansible_env.HOME + '/.zshrc', errors='ignore') != ''
+
+- name: Check if /usr/local/bin/curl exists
+  ansible.builtin.stat:
+    path: /usr/local/bin/curl
+  register: local_curl
+  when: inventory_hostname in groups['vagrant']
+
+- name: Temporarily move /usr/local/bin/curl if it exists
+  ansible.builtin.command: mv /usr/local/bin/curl /usr/local/bin/curl.bak
+  become: true
+  when:
+    - inventory_hostname in groups['vagrant']
+    - local_curl.stat.exists | default(false)
+  register: curl_moved
+
+- name: Get which curl is being used
+  ansible.builtin.command: which curl
+  register: curl_path
+  changed_when: false
+  when: inventory_hostname in groups['vagrant']
+
+- name: Check current Terraform version
+  ansible.builtin.command: terraform --version
+  register: terraform_current_version
+  changed_when: false
+  failed_when: false
+
+- name: Install specified Terraform version
+  ansible.builtin.shell:
+    cmd: |
+      # Ensure PATH is set correctly
+      export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+
+      # Install and use the specified version
+      tfenv install {{ tf_version | default('latest') }} && tfenv use {{ tf_version | default('latest') }}
+    executable: /bin/bash
+  when: >
+    terraform_current_version.rc != 0 or
+    (tf_version != 'latest' and tf_version not in terraform_current_version.stdout)
+
+- name: Restore /usr/local/bin/curl if it was moved
+  ansible.builtin.command: mv /usr/local/bin/curl.bak /usr/local/bin/curl
+  become: true
+  when:
+    - inventory_hostname in groups['vagrant']
+    - curl_moved is defined
+    - curl_moved.changed

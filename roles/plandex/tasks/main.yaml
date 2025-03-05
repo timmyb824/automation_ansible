@@ -1,0 +1,52 @@
+---
+- name: Install plandex
+  when: plandex_state == 'present'
+  block:
+    - name: Create temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: plandex
+      register: temp_dir
+
+    - name: Download plandex installer
+      ansible.builtin.get_url:
+        url: "{{ plandex_install_url }}"
+        dest: "{{ temp_dir.path }}/install.sh"
+        mode: "0755"
+
+    - name: Run plandex installer
+      become: true
+      ansible.builtin.shell:
+        cmd: "./install.sh"
+        chdir: "{{ temp_dir.path }}"
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      register: install_output
+      changed_when: install_output.rc == 0
+      failed_when: install_output.rc != 0
+
+    - name: Show installer output
+      ansible.builtin.debug:
+        var: install_output.stdout_lines
+
+    - name: Clean up temporary directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
+        state: absent
+
+- name: Uninstall plandex
+  when: plandex_state == 'absent'
+  block:
+    - name: Check if plandex is in PATH
+      ansible.builtin.command:
+        cmd: which plandex
+      register: plandex_path
+      ignore_errors: true
+      changed_when: false
+
+    - name: Remove plandex binary
+      become: true
+      ansible.builtin.file:
+        path: "{{ plandex_path.stdout }}"
+        state: absent
+      when: plandex_path.rc == 0

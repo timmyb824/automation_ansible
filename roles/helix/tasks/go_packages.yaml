@@ -1,0 +1,19 @@
+---
+- name: Set Go environment variables
+  ansible.builtin.set_fact:
+    go_env:
+      GOPATH: "{{ ansible_env.HOME }}/go"
+      PATH: "{{ ansible_env.HOME }}/go/bin:{{ ansible_env.PATH }}"
+      GO111MODULE: "on"
+
+- name: Install Go packages
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/go/bin:$PATH"
+    go install {{ item if '@' in item else item + '@latest' }}
+  loop: "{{ helix_go_packages }}"
+  register: go_install
+  failed_when: false
+  changed_when: go_install.rc == 0
+  environment: "{{ go_env }}"
+  when: helix_state == "present"
+  ignore_errors: true

@@ -1,0 +1,4 @@
+---
+trufflehog_version: "3.67.7" # Latest stable version as of March 2024
+trufflehog_state: present
+trufflehog_install_dir: /usr/local/bin

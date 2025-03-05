@@ -1,16 +1,9 @@
 ---
-# - name: Install and configure system packages
-#   hosts: all
-#   become: true
-#   roles:
-#     - role: apt_packages
-
-# - name: Install user tools and configurations
-#   hosts: all
-#   remote_user: tbryant
-#   become: false
-#   roles:
-#     - role: basher
+- name: Install and configure system packages
+  hosts: all
+  become: true
+  roles:
+    - role: apt_packages
 
 - name: Install user tools and packages
   hosts: all
@@ -18,27 +11,160 @@
   become: false
   gather_facts: true
   roles:
-    # - role: cargo_packages
-    # - role: pkgx
-    #   pkgx_state: present
-    # - role: atuin
-    #   atuin_state: present
-    #   atuin_install_method: cargo
-    # - role: node_setup
-    #   node_version: "20"
-    # - role: fzf
-    #   fzf_state: present
-    #   git_ssl_verify: "{{ false if inventory_hostname in groups['vagrant'] else true }}"
-    # - role: kubectl
-    #   kubectl_version: "v1.28.2"
-    #   kubectl_state: present
-    # - role: neovim
-    #   neovim_state: present
-    # - role: rbenv
-    #   rbenv_state: present
-    #   ruby_version: "3.2.2"
+    - role: awscli
+      awscli_state: present
+      tags: [awscli, cloud_tools]
+
+    - role: basher
+      basher_state: present
+      tags: [basher, shell]
+
+    # NOTE: dependency on 'rustup' and 'pkgx' roles
+    - role: cargo_packages
+      cargo_parallel_install: true
+      cargo_jobs: 6
+      cargo_incremental: true
+      cargo_use_sccache: false
+      tags: [rust, dev_tools]
+
+    - role: homebrew
+      homebrew_state: present
+      install_mas: true
+      install_slack: true
+      tags: [homebrew, package_managers]
+
+    - role: atuin
+      atuin_state: present
+      atuin_install_method: cargo
+      tags: [atuin, shell]
+
+    - role: fzf
+      fzf_state: present
+      git_ssl_verify: "{{ false if inventory_hostname in groups['vagrant'] else true }}"
+      tags: [fzf, shell]
+
+    - role: github_cli
+      gh_cli_state: present
+      gh_extensions_state: latest
+      tags: [github_cli, git]
+
+    - role: node_setup
+      node_setup_state: present
+      node_version: "20"
+      npm_packages_state: latest
+      tags: [node, dev_tools]
+
+    - role: rbenv
+      rbenv_state: present
+      ruby_version: "3.2.2"
+      gem_packages_state: present
+      tags: [rbenv, dev_tools]
+
     - role: uv
       uv_state: present
       uv_python_versions:
         - "3.11"
         - "3.12"
+      tags: [uv, dev_tools]
+
+    - role: tfenv
+      tf_version: "latest"
+      tags: [tfenv, terraform]
+
+    - role: sops_age
+      sops_version: "v3.8.1"
+      age_version: "v1.1.1"
+      sops_state: absent
+      age_state: absent
+      tags: [sops_age, security]
+
+    - role: onepassword_cli
+      op_version: "v2.30.3"
+      op_state: present
+      tags: [onepassword_cli, security]
+
+    - role: fastfetch
+      fastfetch_state: present
+      fastfetch_version: "2.37.0"
+      tags: [fastfetch, shell]
+
+    - role: localsend
+      localsend_state: present
+      tags: [localsend, file_sharing]
+
+    # - role: tailscale
+    #   tailscale_state: present
+    #   tailscale_authkey: "{{ tailscale_secrets.authkey }}"
+    #   tags: [tailscale, networking]
+
+    - role: zsh
+      zsh_state: present
+      tags: [zsh, shell]
+
+    - role: go_packages
+      go_packages_state: present
+      tags: [go, dev_tools]
+
+    - role: superfile
+      superfile_state: present
+      tags: [superfile, file_management]
+
+    - role: cloudflared
+      cloudflared_state: present
+      tags: [cloudflared, networking]
+
+    # NOTE: installed as part of uv role
+    # - role: oci
+    #   oci_state: present
+    #   tags: [oci, cloud_tools]
+
+    - role: helm
+      helm_state: present
+      helm_version: "3.14.2"
+      tags: [helm, kubernetes]
+
+    - role: k9s
+      k9s_state: present
+      k9s_version: "0.31.9"
+      tags: [k9s, kubernetes]
+
+    - role: trufflehog
+      trufflehog_state: present
+      trufflehog_version: "3.67.7"
+      tags: [trufflehog, security]
+
+    - role: gitleaks
+      gitleaks_state: present
+      gitleaks_version: "8.18.1"
+      tags: [gitleaks, security]
+
+    - role: teller
+      teller_state: present
+      teller_version: "2.0.7"
+      tags: [teller, security]
+
+    - role: logdy
+      logdy_state: present
+      logdy_version: "0.12.0"
+      tags: [logdy, dev_tools]
+
+    # - role: plandex
+    #   plandex_state: present
+    #   tags: [plandex, file_management]
+
+    - role: micro_plugins
+      micro_plugins_state: latest
+      tags: [micro, editors]
+
+    - role: gitopolis
+      gitopolis_state: present
+      gitopolis_config_path: "{{ ansible_env.HOME }}/DEV/homelab"
+      tags: [gitopolis, git]
+
+    - role: helix
+      helix_state: present
+      tags: [helix, editors]
+
+    - role: ghq_repos
+      ghq_repos_state: present
+      tags: [ghq, git]

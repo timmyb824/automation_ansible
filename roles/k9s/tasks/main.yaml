@@ -1,0 +1,41 @@
+---
+- name: Install k9s
+  when: k9s_state == 'present'
+  block:
+    - name: Create temporary directory
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: k9s
+      register: temp_dir
+
+    - name: Download k9s
+      ansible.builtin.get_url:
+        url: "https://github.com/derailed/k9s/releases/download/v{{ k9s_version }}/k9s_Linux_{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}.tar.gz"
+        dest: "{{ temp_dir.path }}/k9s.tar.gz"
+        mode: "0644"
+
+    - name: Extract k9s archive
+      ansible.builtin.unarchive:
+        src: "{{ temp_dir.path }}/k9s.tar.gz"
+        dest: "{{ temp_dir.path }}"
+        remote_src: true
+
+    - name: Install k9s binary
+      become: true
+      ansible.builtin.copy:
+        src: "{{ temp_dir.path }}/k9s"
+        dest: "{{ k9s_install_dir }}/k9s"
+        mode: "0755"
+        remote_src: true
+
+    - name: Clean up temporary directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
+        state: absent
+
+- name: Uninstall k9s
+  when: k9s_state == 'absent'
+  become: true
+  ansible.builtin.file:
+    path: "{{ k9s_install_dir }}/k9s"
+    state: absent

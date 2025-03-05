@@ -1,0 +1,13 @@
+---
+# Enable parallel installation of cargo packages
+cargo_parallel_install: true
+
+# Number of parallel jobs for cargo installation
+# Higher values may speed up compilation but use more system resources
+cargo_jobs: 4
+
+# Enable incremental compilation (faster rebuilds)
+cargo_incremental: true
+
+# Use shared compilation cache
+cargo_use_sccache: false

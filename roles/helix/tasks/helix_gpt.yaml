@@ -1,0 +1,44 @@
+---
+- name: Install helix-gpt
+  block:
+    - name: Clone helix-gpt repository
+      ansible.builtin.git:
+        repo: https://github.com/leona/helix-gpt.git
+        dest: "{{ helix_source_dir }}-gpt"
+        version: master
+      when: not helix_use_ghq
+
+    - name: Clone helix-gpt using ghq
+      ansible.builtin.command:
+        cmd: ghq get https://github.com/leona/helix-gpt.git
+      register: clone_result
+      changed_when: clone_result.rc == 0
+      when: helix_use_ghq
+
+    - name: Set helix-gpt directory path
+      ansible.builtin.set_fact:
+        helix_gpt_dir: "{{ ghq_root | default(helix_source_dir + '-gpt') }}/github.com/leona/helix-gpt"
+      when: helix_use_ghq
+
+    - name: Set helix-gpt directory path (non-ghq)
+      ansible.builtin.set_fact:
+        helix_gpt_dir: "{{ helix_source_dir }}-gpt"
+      when: not helix_use_ghq
+
+    - name: Build helix-gpt
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+        export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+        eval "$(fnm env --use-on-cd)"
+        bun build:bin
+      args:
+        chdir: "{{ helix_gpt_dir }}"
+      register: build_result
+      changed_when: build_result.rc == 0
+
+    - name: Install helix-gpt binary
+      ansible.builtin.copy:
+        src: "{{ helix_gpt_dir }}/dist/helix-gpt"
+        dest: "{{ helix_bin_dir }}/helix-gpt"
+        mode: "0755"
+        remote_src: true

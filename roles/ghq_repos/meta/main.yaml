@@ -1,0 +1,6 @@
+---
+dependencies:
+  - role: homebrew
+    when: ansible_os_family == "Darwin"
+  - role: go_packages
+    when: ansible_os_family != "Darwin"

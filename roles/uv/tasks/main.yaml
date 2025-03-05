@@ -78,6 +78,13 @@
         - tools_install is defined
         - item.rc != 0
 
+    - name: Create virtualenvs folder at home
+      ansible.builtin.shell: |
+        mkdir -p "{{ ansible_env.HOME }}/.uv/virtualenvs"
+      failed_when: false
+      changed_when: true
+      ignore_errors: true
+
 - name: Uninstall uv
   when: uv_state == "absent"
   block:

@@ -1,0 +1,27 @@
+---
+- name: Set cargo environment
+  ansible.builtin.set_fact:
+    cargo_env:
+      PATH: "{{ ansible_env.HOME }}/.cargo/bin:{{ ansible_env.PATH }}"
+      CARGO_HOME: "{{ ansible_env.HOME }}/.cargo"
+      RUSTUP_HOME: "{{ ansible_env.HOME }}/.rustup"
+
+- name: Source cargo environment
+  ansible.builtin.shell: |
+    source "$HOME/.cargo/env"
+    cargo --version
+  args:
+    executable: /bin/bash
+  register: source_cargo
+  failed_when: false
+  changed_when: false
+
+- name: Install cargo packages
+  ansible.builtin.shell: "cargo install {{ item }}"
+  register: cargo_install
+  loop: "{{ helix_cargo_packages }}"
+  environment: "{{ cargo_env }}"
+  failed_when: false
+  changed_when: cargo_install.rc == 0
+  when: helix_state == "present"
+  ignore_errors: true

@@ -1,0 +1,5 @@
+---
+cloudflared_state: present
+cloudflared_key_url: "https://pkg.cloudflare.com/cloudflare-main.gpg"
+cloudflared_key_path: "/usr/share/keyrings/cloudflare-main.gpg"
+cloudflared_repo_line: "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared {{ ansible_distribution_release }} main"

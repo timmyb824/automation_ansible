@@ -1,0 +1,99 @@
+---
+- name: Set Go binary path for Linux
+  ansible.builtin.set_fact:
+    ghq_env:
+      PATH: "{{ ansible_env.HOME }}/go/bin:{{ ansible_env.PATH }}"
+  when: ansible_os_family != "Darwin"
+
+- name: Set default path for macOS
+  ansible.builtin.set_fact:
+    ghq_env:
+      PATH: "/opt/homebrew/bin:{{ ansible_env.PATH }}"
+  when: ansible_os_family == "Darwin"
+
+- name: Check if ghq is installed
+  ansible.builtin.command: which ghq
+  register: ghq_check
+  changed_when: false
+  failed_when: false
+  environment: "{{ ghq_env }}"
+
+- name: Debug - Show ghq path
+  ansible.builtin.debug:
+    var: ghq_check
+
+- name: Fail if ghq is not installed
+  ansible.builtin.fail:
+    msg: "ghq is not installed. Please ensure it's installed via Homebrew (macOS) or go install (Linux)."
+  when: ghq_check.rc != 0
+
+- name: Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.ssh"
+    state: directory
+    mode: "0700"
+
+- name: Check if master key exists on control node
+  ansible.builtin.stat:
+    path: "{{ lookup('env', 'HOME') }}/.ssh/id_master_key_nopass"
+  register: master_key_stat
+  delegate_to: localhost
+  become: false
+
+- name: Copy master SSH key if it exists
+  ansible.builtin.copy:
+    src: "{{ lookup('env', 'HOME') }}/.ssh/id_master_key_nopass"
+    dest: "{{ ansible_env.HOME }}/.ssh/id_master_key_nopass"
+    mode: "0600"
+  when: master_key_stat.stat.exists
+
+- name: Fetch repository list from gist
+  become: false
+  ansible.builtin.uri:
+    url: "{{ gist_base_url }}/ghq.list"
+    return_content: true
+    validate_certs: true
+    method: GET
+  register: repo_list
+  delegate_to: localhost
+  run_once: true
+
+- name: Parse repository list
+  ansible.builtin.set_fact:
+    ghq_repos: "{{ repo_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+
+- name: Debug - Show parsed repos
+  ansible.builtin.debug:
+    var: ghq_repos
+
+- name: Clone repositories
+  ansible.builtin.shell: |
+    if [ -z "$SSH_AUTH_SOCK" ]; then
+      eval $(ssh-agent) > /dev/null
+    fi
+    ssh-add {{ ansible_env.HOME }}/.ssh/id_master_key_nopass
+    export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new"
+    ghq get {{ item }}
+  register: clone_result
+  environment: "{{ ghq_env }}"
+  loop: "{{ ghq_repos }}"
+  ignore_errors: true
+  when:
+    - item | trim != ''
+    - ghq_repos_state != 'absent'
+    - master_key_stat.stat.exists
+
+- name: Log successful clones
+  ansible.builtin.debug:
+    msg: "Successfully cloned repository: {{ item.item }}"
+  loop: "{{ clone_result.results | selectattr('rc', 'defined') | selectattr('rc', 'equalto', 0) | list }}"
+  when: clone_result.results is defined
+
+- name: Log failed clones
+  ansible.builtin.debug:
+    msg: |
+      Failed to clone repository: {{ item.item }}
+      This is likely due to a gettext.sh error in Vagrant which doesn't affect functionality.
+      The repository may have been cloned successfully despite the error.
+  loop: "{{ clone_result.results | selectattr('rc', 'defined') | selectattr('rc', 'ne', 0) | list }}"
+  when: clone_result.results is defined

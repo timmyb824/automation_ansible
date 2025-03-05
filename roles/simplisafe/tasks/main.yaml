@@ -1,0 +1,105 @@
+---
+- name: Verify OS is macOS
+  ansible.builtin.fail:
+    msg: "This role only supports macOS"
+  when: ansible_os_family != "Darwin"
+
+- name: Check if connected to SimpliSafe VPN
+  ansible.builtin.uri:
+    url: "{{ dx_url }}"
+    method: HEAD
+    validate_certs: yes
+  register: vpn_check
+  failed_when: false
+  changed_when: false
+
+- name: Fail if not connected to VPN
+  ansible.builtin.fail:
+    msg: "Please connect to the SimpliSafe VPN before running this role"
+  when: vpn_check.status != 200
+
+- name: Verify Homebrew is installed
+  ansible.builtin.command: which brew
+  register: brew_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if Homebrew is not installed
+  ansible.builtin.fail:
+    msg: "Homebrew is required but not installed. Please install Homebrew first."
+  when: brew_check.rc != 0
+
+- name: Add SimpliSafe Homebrew tap
+  ansible.builtin.command: brew tap simplisafe/simplisafe-tools {{ simplisafe_tap }}
+  register: tap_result
+  changed_when: tap_result.rc == 0
+  failed_when: tap_result.rc != 0 and "already tapped" not in tap_result.stderr
+
+- name: Install SAML AWS Auth
+  community.general.homebrew_cask:
+    name: simplisafe/simplisafe-tools/saml-aws-auth
+    state: "{{ saml_aws_auth_state }}"
+  when: saml_aws_auth_state is defined
+
+- name: Install saml2aws
+  community.general.homebrew:
+    name: saml2aws
+    state: "{{ saml2aws_state }}"
+  when: saml2aws_state is defined
+
+- name: Install MeetingBar
+  community.general.homebrew_cask:
+    name: meetingbar
+    state: "{{ meetingbar_state }}"
+  when: meetingbar_state is defined
+
+- name: Check if dx is installed
+  ansible.builtin.command: which dx
+  register: dx_check
+  changed_when: false
+  failed_when: false
+
+- name: Download and install dx
+  when: dx_state == "present" and dx_check.rc != 0
+  block:
+    - name: Download dx
+      ansible.builtin.get_url:
+        url: "{{ dx_url }}"
+        dest: "{{ dx_install_path }}"
+        mode: "0755"
+      become: true
+
+    - name: Install dx shell completion
+      ansible.builtin.command: dx install-completion
+      register: dx_completion
+      changed_when: dx_completion.rc == 0
+      failed_when: false
+
+- name: Remove dx
+  ansible.builtin.file:
+    path: "{{ dx_install_path }}"
+    state: absent
+  become: true
+  when: dx_state == "absent"
+
+- name: Check if awashcli is installed
+  ansible.builtin.command: which awashcli
+  register: awashcli_check
+  changed_when: false
+  failed_when: false
+
+- name: Download and install awashcli
+  when: awashcli_state == "present" and awashcli_check.rc != 0
+  block:
+    - name: Download and run awashcli install script
+      ansible.builtin.shell: |
+        source <(curl -s --fail -L {{ awashcli_install_url }})
+      args:
+        executable: /bin/bash
+      register: awashcli_install
+      failed_when: awashcli_install.rc != 0
+
+    - name: Notify about awashcli setup
+      ansible.builtin.debug:
+        msg: "Please run 'awashcli setup <team> zsh' and restart your terminal to complete the setup"
+      when: awashcli_install.changed

@@ -1,0 +1,39 @@
+---
+- name: Include vault variables
+  ansible.builtin.include_vars:
+    file: vault.yaml
+
+- name: Include OS-specific tasks
+  ansible.builtin.include_tasks: "{{ ansible_os_family | lower }}.yaml"
+
+- name: Configure and start Tailscale
+  when:
+    - tailscale_state == "present"
+    - ansible_os_family != "Darwin" # Skip on macOS as it requires manual setup
+  block:
+    - name: Check Tailscale status
+      ansible.builtin.command: tailscale status
+      register: tailscale_status
+      changed_when: false
+      failed_when: false
+
+    - name: Start and authenticate Tailscale
+      ansible.builtin.command: >-
+        tailscale up
+        --operator={{ tailscale_operator }}
+        --accept-routes={{ tailscale_accept_routes | string | lower }}
+        --accept-dns={{ tailscale_accept_dns | string | lower }}
+        --authkey={{ tailscale_secrets.authkey }}
+        --timeout=30s
+      become: true
+      when: >
+        tailscale_status.rc != 0 or
+        'Tailscale is stopped' in tailscale_status.stdout or
+        'logged out' in tailscale_status.stdout
+      register: tailscale_up
+      changed_when: tailscale_up.rc == 0
+      failed_when:
+        - tailscale_up.rc != 0
+        - "'already running' not in tailscale_up.stderr"
+      async: 60
+      poll: 5
