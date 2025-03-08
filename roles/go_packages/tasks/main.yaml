@@ -42,24 +42,24 @@
         state: absent
       when: go_packages_state == "absent"
 
-    - name: Set up environment in bashrc
-      ansible.builtin.blockinfile:
-        path: "{{ ansible_env.HOME }}/.bashrc"
-        marker: "# {mark} ANSIBLE MANAGED BLOCK - GO ENVIRONMENT"
-        block: |
-          export GOPATH="{{ go_path }}"
-          export PATH=$PATH:{{ go_install_dir }}/go/bin:$GOPATH/bin
-        state: "{{ 'absent' if go_packages_state == 'absent' else 'present' }}"
+    # - name: Set up environment in bashrc
+    #   ansible.builtin.blockinfile:
+    #     path: "{{ ansible_env.HOME }}/.bashrc"
+    #     marker: "# {mark} ANSIBLE MANAGED BLOCK - GO ENVIRONMENT"
+    #     block: |
+    #       export GOPATH="{{ go_path }}"
+    #       export PATH=$PATH:{{ go_install_dir }}/go/bin:$GOPATH/bin
+    #     state: "{{ 'absent' if go_packages_state == 'absent' else 'present' }}"
 
-    - name: Set up environment in zshrc if exists
-      ansible.builtin.blockinfile:
-        path: "{{ ansible_env.HOME }}/.zshrc"
-        marker: "# {mark} ANSIBLE MANAGED BLOCK - GO ENVIRONMENT"
-        block: |
-          export GOPATH="{{ go_path }}"
-          export PATH=$PATH:{{ go_install_dir }}/go/bin:$GOPATH/bin
-        state: "{{ 'absent' if go_packages_state == 'absent' else 'present' }}"
-      when: lookup('file', ansible_env.HOME + '/.zshrc', errors='ignore') != ''
+    # - name: Set up environment in zshrc if exists
+    #   ansible.builtin.blockinfile:
+    #     path: "{{ ansible_env.HOME }}/.zshrc"
+    #     marker: "# {mark} ANSIBLE MANAGED BLOCK - GO ENVIRONMENT"
+    #     block: |
+    #       export GOPATH="{{ go_path }}"
+    #       export PATH=$PATH:{{ go_install_dir }}/go/bin:$GOPATH/bin
+    #     state: "{{ 'absent' if go_packages_state == 'absent' else 'present' }}"
+    #   when: lookup('file', ansible_env.HOME + '/.zshrc', errors='ignore') != ''
 
 - name: Create GOPATH directory
   ansible.builtin.file:
@@ -78,12 +78,12 @@
     - "{{ ansible_env.HOME }}/go/bin"
   when: go_packages_state != 'absent'
 
-- name: Ensure Go bin directory is in PATH
-  ansible.builtin.lineinfile:
-    path: "{{ ansible_env.HOME }}/.zshrc"
-    line: 'export PATH="$HOME/go/bin:$PATH"'
-    state: present
-  when: go_packages_state != 'absent'
+# - name: Ensure Go bin directory is in PATH
+#   ansible.builtin.lineinfile:
+#     path: "{{ ansible_env.HOME }}/.zshrc"
+#     line: 'export PATH="$HOME/go/bin:$PATH"'
+#     state: present
+#   when: go_packages_state != 'absent'
 
 - name: Set OS-specific gist filename
   ansible.builtin.set_fact:
@@ -102,7 +102,9 @@
 - name: Parse package list
   become: false
   ansible.builtin.set_fact:
-    go_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list + go_extra_packages }}"
+    # go_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list + go_extra_packages }}"
+    go_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list + go_extra_packages }}"
+
   when: go_packages_state != 'absent'
 
 - name: Debug - Show gist content

@@ -54,7 +54,8 @@
 
 - name: Parse package list
   ansible.builtin.set_fact:
-    cargo_packages: "{{ package_list.content.split('\n') | select('match', '^[^#]') | list }}"
+    # cargo_packages: "{{ package_list.content.split('\n') | select('match', '^[^#]') | list }}"
+    cargo_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
   when: package_list is defined and package_list.content is defined
 
 - name: Debug cargo packages

@@ -11,6 +11,14 @@ all:
           ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o IdentitiesOnly=yes -o PubkeyAcceptedKeyTypes=+ssh-rsa -o HostKeyAlgorithms=+ssh-rsa"
     servers:
       hosts:
+        ######TEST######
+        ubuntu_test:
+          ansible_host: 192.168.86.133
+          ansible_connection: ssh
+          ansible_port: 22
+          ansible_user: tbryant
+          ansible_ssh_private_key_file: ~/.ssh/id_master_key_nopass
+          ##############
         hp-laptop:
           ansible_host: hp-laptop-ubuntu.homelab.lan
           ansible_connection: ssh

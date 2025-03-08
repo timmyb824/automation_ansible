@@ -40,7 +40,8 @@
 
 - name: Parse package list
   ansible.builtin.set_fact:
-    pkgx_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+    # pkgx_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+    pkgx_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
   when: package_list is defined and package_list.content is defined
 
 - name: Verify package list is not empty

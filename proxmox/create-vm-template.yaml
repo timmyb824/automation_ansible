@@ -13,7 +13,7 @@
       template_cores: 2
       storage: local-zfs3
   tasks:
-    - name : download cloud image
+    - name: download cloud image
       get_url:
         url: "{{ vm.cloud_image_url }}"
         dest: "{{ vm.cloud_image_path }}"
@@ -46,3 +46,9 @@
     - name: create template
       command: "qm template {{ vm.template_id }}"
       become: yes
+
+    - name: Remove downloaded cloud image
+      file:
+        path: "{{ vm.cloud_image_path }}"
+        state: absent
+      when: cleanup_downloads | default(true)

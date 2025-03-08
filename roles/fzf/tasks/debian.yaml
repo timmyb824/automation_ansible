@@ -56,6 +56,11 @@
   changed_when: false
   failed_when: false
 
+- name: Check if fzf-git.sh is already cloned
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/ghq/github.com/junegunn/fzf-git.sh"
+  register: fzf_git_check
+
 - name: Clone fzf-git.sh
   ansible.builtin.shell: |
     export PATH="{{ ansible_env.HOME }}/go/bin:$PATH"
@@ -65,6 +70,8 @@
   when:
     - fzf_state == "present"
     - ghq_check.rc == 0
+    - not fzf_git_check.stat.exists
+  failed_when: false
 
 - name: Check if cargo env file exists
   ansible.builtin.stat:

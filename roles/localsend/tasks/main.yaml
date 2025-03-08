@@ -38,7 +38,7 @@
     - name: Download LocalSend
       when: localsend_install_needed
       ansible.builtin.get_url:
-        url: "https://github.com/localsend/localsend/releases/download/v{{ localsend_version }}/localsend_app_{{ localsend_version }}_linux_x86_64.deb"
+        url: "{{ localsend_deb_url }}"
         dest: "/tmp/localsend_install/localsend.deb"
         mode: "0644"
 

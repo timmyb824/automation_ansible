@@ -5,10 +5,53 @@
   changed_when: false
   failed_when: false
 
-- name: Fail if gitopolis is not installed
-  ansible.builtin.fail:
-    msg: "gitopolis is not installed. Please ensure it's installed via Homebrew (macOS) or pkgx (Linux)."
-  when: gitopolis_check.rc != 0
+- name: Install gitopolis on Linux x86_64
+  when:
+    - ansible_system == 'Linux'
+    - ansible_architecture == 'x86_64'
+    - gitopolis_check.rc != 0
+    - gitopolis_state != 'absent'
+  block:
+    - name: Create temporary directory for gitopolis
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: gitopolis
+      register: temp_dir
+
+    - name: Get latest gitopolis release URL
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/timabell/gitopolis/releases/latest
+        return_content: true
+      register: latest_release
+
+    - name: Set release asset URL
+      ansible.builtin.set_fact:
+        asset_url: "{{ latest_release.json.assets | selectattr('name', 'match', '^gitopolis-linux-x86_64\.tar\.gz$') | map(attribute='browser_download_url') | first }}"
+
+    - name: Download gitopolis release
+      ansible.builtin.get_url:
+        url: "{{ asset_url }}"
+        dest: "{{ temp_dir.path }}/gitopolis.tar.gz"
+        mode: '0644'
+
+    - name: Extract gitopolis archive
+      ansible.builtin.unarchive:
+        src: "{{ temp_dir.path }}/gitopolis.tar.gz"
+        dest: "{{ temp_dir.path }}"
+        remote_src: true
+
+    - name: Install gitopolis binary
+      ansible.builtin.copy:
+        src: "{{ temp_dir.path }}/gitopolis"
+        dest: "/usr/local/bin/gitopolis"
+        mode: '0755'
+        remote_src: true
+      become: true
+
+    - name: Clean up temporary directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
+        state: absent
 
 - name: Check if .gitopolis.toml exists
   ansible.builtin.stat:

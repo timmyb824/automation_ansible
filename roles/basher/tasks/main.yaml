@@ -64,8 +64,7 @@
 
     - name: Parse package list
       ansible.builtin.set_fact:
-        basher_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
-      when: package_list is success
+        basher_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
 
     - name: Install basher packages
       ansible.builtin.command: "{{ ansible_env.HOME }}/.basher/bin/basher install {{ item }}"
@@ -111,7 +110,7 @@
 
     - name: Parse package list for uninstallation
       ansible.builtin.set_fact:
-        basher_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+        basher_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
       when: package_list is success
 
     - name: Uninstall basher packages

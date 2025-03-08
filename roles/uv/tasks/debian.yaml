@@ -1,4 +1,14 @@
 ---
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - wget
+      - ca-certificates
+      - openssl
+    state: present
+    update_cache: true
+  become: true
+
 - name: Check if /usr/local/bin/curl exists
   ansible.builtin.stat:
     path: /usr/local/bin/curl
@@ -12,12 +22,6 @@
     - inventory_hostname in groups['vagrant']
     - local_curl.stat.exists | default(false)
   register: curl_moved
-
-- name: Get which curl is being used
-  ansible.builtin.command: which curl
-  register: curl_path
-  changed_when: false
-  when: inventory_hostname in groups['vagrant']
 
 - name: Check for pipx installation
   ansible.builtin.stat:
@@ -57,3 +61,20 @@
     - inventory_hostname in groups['vagrant']
     - curl_moved is defined
     - curl_moved.changed
+
+- name: Download uv installer using wget
+  ansible.builtin.get_url:
+    url: https://astral.sh/uv/install.sh
+    dest: /tmp/uv_install.sh
+    mode: "0755"
+  register: wget_download
+
+- name: Install uv using downloaded script
+  ansible.builtin.shell: /tmp/uv_install.sh
+  register: uv_install
+  changed_when: uv_install.rc == 0
+
+- name: Clean up installer script
+  ansible.builtin.file:
+    path: /tmp/uv_install.sh
+    state: absent

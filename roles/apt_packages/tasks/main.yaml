@@ -18,7 +18,8 @@
 - name: Parse package list
   become: false # No sudo needed for parsing
   ansible.builtin.set_fact:
-    apt_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+    # apt_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+    apt_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
 
 - name: Install apt packages
   become: true

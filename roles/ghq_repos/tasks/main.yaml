@@ -60,7 +60,8 @@
 
 - name: Parse repository list
   ansible.builtin.set_fact:
-    ghq_repos: "{{ repo_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+    # ghq_repos: "{{ repo_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+    ghq_repos: "{{ repo_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
 
 - name: Debug - Show parsed repos
   ansible.builtin.debug:

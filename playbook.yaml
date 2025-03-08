@@ -11,6 +11,10 @@
   become: false
   gather_facts: true
   roles:
+    - role: zsh
+      zsh_state: present
+      tags: [zsh, shell]
+
     - role: awscli
       awscli_state: present
       tags: [awscli, cloud_tools]
@@ -22,7 +26,7 @@
     # NOTE: dependency on 'rustup' and 'pkgx' roles
     - role: cargo_packages
       cargo_parallel_install: true
-      cargo_jobs: 6
+      cargo_jobs: 1
       cargo_incremental: true
       cargo_use_sccache: false
       tags: [rust, dev_tools]
@@ -97,10 +101,6 @@
     #   tailscale_authkey: "{{ tailscale_secrets.authkey }}"
     #   tags: [tailscale, networking]
 
-    - role: zsh
-      zsh_state: present
-      tags: [zsh, shell]
-
     - role: go_packages
       go_packages_state: present
       tags: [go, dev_tools]
@@ -112,11 +112,6 @@
     - role: cloudflared
       cloudflared_state: present
       tags: [cloudflared, networking]
-
-    # NOTE: installed as part of uv role
-    # - role: oci
-    #   oci_state: present
-    #   tags: [oci, cloud_tools]
 
     - role: helm
       helm_state: present
@@ -148,18 +143,9 @@
       logdy_version: "0.12.0"
       tags: [logdy, dev_tools]
 
-    # - role: plandex
-    #   plandex_state: present
-    #   tags: [plandex, file_management]
-
     - role: micro_plugins
       micro_plugins_state: latest
       tags: [micro, editors]
-
-    - role: gitopolis
-      gitopolis_state: present
-      gitopolis_config_path: "{{ ansible_env.HOME }}/DEV/homelab"
-      tags: [gitopolis, git]
 
     - role: helix
       helix_state: present
@@ -168,3 +154,8 @@
     - role: ghq_repos
       ghq_repos_state: present
       tags: [ghq, git]
+
+    - role: gitopolis
+      gitopolis_state: present
+      gitopolis_config_path: "{{ ansible_env.HOME }}/DEV/homelab"
+      tags: [gitopolis, git]

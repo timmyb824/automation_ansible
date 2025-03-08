@@ -50,7 +50,8 @@
 
     - name: Parse tools list
       ansible.builtin.set_fact:
-        uv_tools: "{{ tools_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+        # uv_tools: "{{ tools_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+        uv_tools: "{{ tools_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
       when: tools_list is defined and tools_list.content is defined
 
     - name: Verify tools list is not empty
