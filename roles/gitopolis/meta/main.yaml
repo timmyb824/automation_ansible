@@ -2,5 +2,3 @@
 dependencies:
   - role: homebrew
     when: ansible_os_family == "Darwin"
-  - role: pkgx
-    when: ansible_os_family != "Darwin"

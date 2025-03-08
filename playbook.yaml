@@ -23,13 +23,17 @@
       basher_state: present
       tags: [basher, shell]
 
-    # NOTE: dependency on 'rustup' and 'pkgx' roles
+    # NOTE: dependency on 'rustup'
     - role: cargo_packages
       cargo_parallel_install: true
       cargo_jobs: 1
       cargo_incremental: true
       cargo_use_sccache: false
       tags: [rust, dev_tools]
+
+    - role: zellij
+      zellij_state: present
+      tags: [zellij, shell]
 
     - role: homebrew
       homebrew_state: present
@@ -78,8 +82,8 @@
     - role: sops_age
       sops_version: "v3.8.1"
       age_version: "v1.1.1"
-      sops_state: absent
-      age_state: absent
+      sops_state: present
+      age_state: present
       tags: [sops_age, security]
 
     - role: onepassword_cli
@@ -155,6 +159,7 @@
       ghq_repos_state: present
       tags: [ghq, git]
 
+    # TODO: has no installation for arm mac
     - role: gitopolis
       gitopolis_state: present
       gitopolis_config_path: "{{ ansible_env.HOME }}/DEV/homelab"

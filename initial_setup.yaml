@@ -9,4 +9,4 @@
   hosts: all
   become: true
   roles:
-    - user_setup
+    - role: user_setup

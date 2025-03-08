@@ -23,16 +23,36 @@
         url: https://api.github.com/repos/timabell/gitopolis/releases/latest
         return_content: true
       register: latest_release
+      retries: 3
+      delay: 5
+      until: latest_release is success
+
+    - name: Get matching release assets
+      ansible.builtin.set_fact:
+        matching_assets: >-
+          {{ latest_release.json.assets |
+             selectattr('name', 'regex', 'gitopolis-linux-x86_64\.tar\.gz') |
+             map(attribute='browser_download_url') |
+             list }}
+
+    - name: Fail if no matching release found
+      ansible.builtin.fail:
+        msg: "No matching gitopolis release found for Linux x86_64"
+      when: matching_assets | length == 0
 
     - name: Set release asset URL
       ansible.builtin.set_fact:
-        asset_url: "{{ latest_release.json.assets | selectattr('name', 'match', '^gitopolis-linux-x86_64\.tar\.gz$') | map(attribute='browser_download_url') | first }}"
+        asset_url: "{{ matching_assets[0] }}"
 
     - name: Download gitopolis release
       ansible.builtin.get_url:
         url: "{{ asset_url }}"
         dest: "{{ temp_dir.path }}/gitopolis.tar.gz"
-        mode: '0644'
+        mode: "0644"
+      register: download_result
+      retries: 3
+      delay: 5
+      until: download_result is success
 
     - name: Extract gitopolis archive
       ansible.builtin.unarchive:
@@ -44,7 +64,7 @@
       ansible.builtin.copy:
         src: "{{ temp_dir.path }}/gitopolis"
         dest: "/usr/local/bin/gitopolis"
-        mode: '0755'
+        mode: "0755"
         remote_src: true
       become: true
 
@@ -52,6 +72,17 @@
       ansible.builtin.file:
         path: "{{ temp_dir.path }}"
         state: absent
+      when: temp_dir.path is defined
+  rescue:
+    - name: Clean up temporary directory on failure
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
+        state: absent
+      when: temp_dir.path is defined
+
+    - name: Fail with error message
+      ansible.builtin.fail:
+        msg: "Failed to install gitopolis. Please check the error messages above."
 
 - name: Check if .gitopolis.toml exists
   ansible.builtin.stat:
@@ -70,6 +101,10 @@
   register: gitopolis_clone
   changed_when: gitopolis_clone.rc == 0
   failed_when: gitopolis_clone.rc != 0
+  retries: 3
+  delay: 5
+  until: gitopolis_clone is success
   when:
     - gitopolis_state != 'absent'
     - config_file.stat.exists
+    - gitopolis_check.rc == 0 # Only if gitopolis is installed

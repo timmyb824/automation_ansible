@@ -67,30 +67,6 @@
       Zellij in packages: {{ 'zellij' in (cargo_packages | default([]) | map('regex_replace', '^--locked\\s+', '') | list) }}
   when: cargo_check.rc == 0 or source_cargo.rc == 0
 
-- name: Install zellij with pkgx on ARM Linux
-  when:
-    - cargo_check.rc == 0 or source_cargo.rc == 0
-    - ansible_architecture == 'aarch64'
-    - ansible_system == 'Linux'
-    - "'zellij' in (cargo_packages | default([]) | map('regex_replace', '^--locked\\s+', '') | list)"
-  block:
-    - name: Check if zellij is installed
-      ansible.builtin.command: which zellij
-      register: zellij_check
-      failed_when: false
-      changed_when: false
-
-    - name: Install zellij with pkgx
-      become: true
-      ansible.builtin.command: pkgm install zellij
-      when: zellij_check.rc != 0
-      register: zellij_install
-
-    - name: Log zellij installation status
-      ansible.builtin.debug:
-        msg: "{{ 'Zellij installed successfully via pkgx' if zellij_install.changed else 'Zellij was already installed' }}"
-      when: zellij_check.rc == 0 or zellij_install is defined
-
 - name: Install standard cargo packages
   ansible.builtin.shell: "cargo install {{ '--jobs=' + cargo_jobs | string if cargo_parallel_install | default(false) else '' }} {{ item }}"
   register: cargo_install

@@ -1,0 +1,121 @@
+---
+- name: Source cargo environment
+  ansible.builtin.shell: |
+    source "$HOME/.cargo/env"
+    cargo --version
+  args:
+    executable: /bin/bash
+  register: source_cargo
+  failed_when: false
+  changed_when: false
+
+- name: Set cargo environment
+  ansible.builtin.set_fact:
+    cargo_env:
+      PATH: "{{ ansible_env.HOME }}/.cargo/bin:{{ ansible_env.PATH }}"
+      CARGO_HOME: "{{ ansible_env.HOME }}/.cargo"
+      RUSTUP_HOME: "{{ ansible_env.HOME }}/.rustup"
+
+- name: Check if zellij is installed (with cargo env)
+  ansible.builtin.command: which zellij
+  register: zellij_check
+  failed_when: false
+  changed_when: false
+  environment: "{{ cargo_env }}"
+
+- name: Install zellij binary
+  when:
+    - zellij_check.rc != 0
+    - zellij_state == 'present'
+    - ansible_system == 'Linux'
+  block:
+    - name: Create temporary directory for zellij
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: zellij
+      register: temp_dir
+
+    - name: Get latest zellij release URL
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/zellij-org/zellij/releases/latest
+        return_content: true
+      register: latest_release
+      delegate_to: localhost
+
+    - name: Set release asset URL
+      ansible.builtin.set_fact:
+        asset_url: >-
+          {{ latest_release.json.assets |
+             selectattr('name', 'match',
+               '^zellij-' + (ansible_architecture | regex_replace('x86_64', 'x86_64') |
+               regex_replace('aarch64', 'aarch64')) + '-unknown-linux-musl\.tar\.gz$') |
+             map(attribute='browser_download_url') | list }}
+
+    - name: Fail if no matching release found
+      ansible.builtin.fail:
+        msg: "No matching zellij release found for architecture {{ ansible_architecture }}"
+      when: asset_url | length == 0
+
+    - name: Set final asset URL
+      ansible.builtin.set_fact:
+        asset_url: "{{ asset_url[0] }}"
+
+    - name: Download zellij release
+      ansible.builtin.get_url:
+        url: "{{ asset_url }}"
+        dest: "{{ temp_dir.path }}/zellij.tar.gz"
+        mode: "0644"
+      register: download_result
+      retries: 3
+      delay: 5
+      until: download_result is success
+
+    - name: Extract zellij archive
+      ansible.builtin.unarchive:
+        src: "{{ temp_dir.path }}/zellij.tar.gz"
+        dest: "{{ temp_dir.path }}"
+        remote_src: true
+
+    - name: Install zellij binary
+      ansible.builtin.copy:
+        src: "{{ temp_dir.path }}/zellij"
+        dest: "/usr/local/bin/zellij"
+        mode: "0755"
+        remote_src: true
+        backup: true
+      become: true
+      register: install_result
+
+    - name: Clean up temporary directory
+      ansible.builtin.file:
+        path: "{{ temp_dir.path }}"
+        state: absent
+
+    - name: Verify zellij installation
+      ansible.builtin.command: zellij --version
+      register: zellij_verify
+      changed_when: false
+      environment: "{{ cargo_env }}"
+
+    - name: Log zellij installation status
+      ansible.builtin.debug:
+        msg: "Zellij {{ zellij_verify.stdout }} installed successfully from GitHub releases"
+
+- name: Log existing zellij installation
+  ansible.builtin.debug:
+    msg: "Zellij is already installed"
+  when: 
+    - zellij_check.rc == 0
+    - zellij_state == 'present'
+
+- name: Remove zellij binary
+  ansible.builtin.file:
+    path: "/usr/local/bin/zellij"
+    state: absent
+  become: true
+  when: zellij_state == 'absent'
+
+- name: Log zellij removal
+  ansible.builtin.debug:
+    msg: "Zellij has been removed"
+  when: zellij_state == 'absent'
