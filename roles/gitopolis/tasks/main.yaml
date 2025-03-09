@@ -5,6 +5,22 @@
   changed_when: false
   failed_when: false
 
+- name: Install on MacOS
+  when:
+    - ansible_system == 'Darwin'
+    - gitopolis_check.rc != 0
+    - gitopolis_state != 'absent'
+  block:
+    - name: Check if pkgm is available
+      command: which pkgm
+      register: pkgm_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install gitopolis on MacOS
+      ansible.builtin.command: pkgm install gitopolis
+      when: pkgm_check.rc == 0
+
 - name: Install gitopolis on Linux x86_64
   when:
     - ansible_system == 'Linux'
