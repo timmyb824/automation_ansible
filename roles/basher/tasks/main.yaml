@@ -56,10 +56,16 @@
     - name: Parse package list
       ansible.builtin.set_fact:
         basher_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
+      when: package_list is success and package_list.content is defined
+
+    - name: Set empty package list if fetch failed
+      ansible.builtin.set_fact:
+        basher_packages: []
+      when: package_list is not success or package_list.content is not defined
 
     - name: Install basher packages
       ansible.builtin.command: "{{ ansible_env.HOME }}/.basher/bin/basher install {{ item }}"
-      loop: "{{ basher_packages | default([]) }}"
+      loop: "{{ basher_packages }}"
       register: basher_install
       changed_when: "'Already installed' not in basher_install.stderr"
       failed_when: false
@@ -102,11 +108,16 @@
     - name: Parse package list for uninstallation
       ansible.builtin.set_fact:
         basher_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
-      when: package_list is success
+      when: package_list is success and package_list.content is defined
+
+    - name: Set empty package list if fetch failed (uninstall)
+      ansible.builtin.set_fact:
+        basher_packages: []
+      when: package_list is not success or package_list.content is not defined
 
     - name: Uninstall basher packages
       ansible.builtin.command: "{{ ansible_env.HOME }}/.basher/bin/basher uninstall {{ item }}"
-      loop: "{{ basher_packages | default([]) }}"
+      loop: "{{ basher_packages }}"
       register: basher_uninstall
       changed_when: true
       failed_when: false

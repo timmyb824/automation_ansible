@@ -1,4 +1,3 @@
 ---
 basher_state: present
-basher_gist_base_url: "https://gist.githubusercontent.com/{{ gist_github_user | default(ansible_user_id) }}/807597f33b14eceeb26e4e6f81d45962/raw"
-basher_package_list: "{{ basher_gist_base_url }}/basher.list"
+basher_package_list: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw/basher.list"
