@@ -5,42 +5,70 @@
   failed_when: false
   changed_when: false
 
-- name: Download rustup installer
-  ansible.builtin.get_url:
-    url: "https://static.rust-lang.org/rustup/dist/{{ ansible_architecture }}-unknown-linux-gnu/rustup-init"
-    dest: /tmp/rustup-init
-    mode: "0755"
-  when: rustup_check.rc != 0
-  register: download_rustup
-
-- name: Install rustup
-  ansible.builtin.shell: /tmp/rustup-init -y
-  register: rustup_install
-  when: rustup_check.rc != 0
-  args:
-    creates: "{{ ansible_env.HOME }}/.cargo/bin/rustup"
-
-- name: Log rustup installation status
-  ansible.builtin.debug:
-    msg: "{{ 'rustup installed successfully' if rustup_install is changed else 'rustup is already installed' }}"
-
-- name: Install Rust dependencies (Linux only)
-  when: ansible_os_family == "Debian"
-  become: true
+# Linux installation block
+- name: Install rustup on Linux
+  when: ansible_os_family == "Debian" and rustup_check.rc != 0
   block:
-    - name: Install build-essential
-      apt:
-        name: build-essential
-        state: present
-        update_cache: true
-      register: rust_deps
+    - name: Download rustup installer
+      ansible.builtin.get_url:
+        url: "https://static.rust-lang.org/rustup/dist/{{ ansible_architecture }}-unknown-linux-gnu/rustup-init"
+        dest: /tmp/rustup-init
+        mode: "0755"
+      register: download_rustup
 
-    - name: Log Rust dependencies installation status
-      debug:
-        msg: "{{ 'Rust dependencies installed successfully' if rust_deps is changed else 'Rust dependencies were already installed' }}"
+    - name: Install rustup
+      ansible.builtin.shell: /tmp/rustup-init -y
+      register: rustup_install
+      args:
+        creates: "{{ ansible_env.HOME }}/.cargo/bin/rustup"
 
-- name: Clean up rustup installer
-  ansible.builtin.file:
-    path: /tmp/rustup-init
-    state: absent
-  when: download_rustup is changed
+    - name: Install Rust dependencies
+      become: true
+      block:
+        - name: Install build-essential
+          apt:
+            name: build-essential
+            state: present
+            update_cache: true
+          register: rust_deps
+
+        - name: Log Rust dependencies installation status
+          debug:
+            msg: "{{ 'Rust dependencies installed successfully' if rust_deps is changed else 'Rust dependencies were already installed' }}"
+
+    - name: Clean up rustup installer
+      ansible.builtin.file:
+        path: /tmp/rustup-init
+        state: absent
+      when: download_rustup is changed
+
+# Darwin installation block
+- name: Install rustup on Darwin
+  when: ansible_os_family == "Darwin" and rustup_check.rc != 0
+  block:
+    - name: Install rustup via shell script
+      ansible.builtin.shell: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      register: rustup_install
+      args:
+        creates: "{{ ansible_env.HOME }}/.cargo/bin/rustup"
+      failed_when: false
+
+    - name: Verify rustup installation
+      ansible.builtin.command: which rustup
+      register: rustup_verify
+      changed_when: false
+      failed_when: rustup_verify.rc != 0
+
+    - name: Log Darwin installation status
+      ansible.builtin.debug:
+        msg: "{{ 'rustup installed successfully on macOS' if rustup_install is changed else 'rustup installation failed on macOS' }}"
+      when: rustup_verify.rc == 0
+
+- name: Log final rustup status
+  ansible.builtin.debug:
+    msg: >
+      {% if ansible_os_family == 'Darwin' %}
+      {{ 'rustup installed successfully on macOS' if rustup_install is changed else 'rustup is already installed on macOS' }}
+      {% else %}
+      {{ 'rustup installed successfully on Linux' if rustup_install is changed else 'rustup is already installed on Linux' }}
+      {% endif %}
