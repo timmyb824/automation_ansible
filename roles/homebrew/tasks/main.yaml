@@ -66,7 +66,8 @@
       community.general.homebrew:
         name: "{{ item }}"
         state: present
-      loop: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+      # loop: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
+      loop: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
       when: homebrew_state != 'absent'
 
     - name: Install Mac App Store CLI

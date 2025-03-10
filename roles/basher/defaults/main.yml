@@ -1,3 +1,0 @@
----
-# Whether to install (present) or uninstall (absent) basher and its packages
-basher_state: present
