@@ -1,8 +1,18 @@
 ---
+- name: Check if system is Debian-based
+  ansible.builtin.set_fact:
+    is_debian: "{{ ansible_os_family == 'Debian' if ansible_os_family is defined else false }}"
+
+- name: Skip role on non-Debian systems
+  ansible.builtin.debug:
+    msg: "Skipping apt_packages role - This role only works on Debian-based systems"
+  when: not is_debian
+
 - name: Update apt package cache
   become: true
   ansible.builtin.apt:
     update_cache: true
+  when: is_debian
 
 - name: Fetch package list from gist
   become: false # Explicitly disable sudo for this task
@@ -14,20 +24,21 @@
   register: package_list
   delegate_to: localhost
   run_once: true # Only need to fetch once
+  when: is_debian
 
 - name: Parse package list
   become: false # No sudo needed for parsing
   ansible.builtin.set_fact:
-    # apt_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
     apt_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
+  when: is_debian and package_list is defined
 
 - name: Install apt packages
   become: true
   ansible.builtin.apt:
     name: "{{ apt_packages }}"
     state: present
-  # check_mode: true # use for "dry run"
   register: package_install
+  when: is_debian and apt_packages is defined
 
 - name: Debug package installation
   ansible.builtin.debug:
@@ -35,3 +46,4 @@
       - "Packages to be installed: {{ apt_packages }}"
       - "Installation status: {{ package_install }}"
     verbosity: 0
+  when: is_debian and package_install is defined
