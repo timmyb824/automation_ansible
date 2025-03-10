@@ -1,5 +1,15 @@
 ---
-- name: Install Zsh
+- name: Check if system is macOS
+  ansible.builtin.set_fact:
+    is_macos: "{{ ansible_os_family == 'Darwin' if ansible_os_family is defined else false }}"
+
+- name: Skip role on macOS
+  ansible.builtin.debug:
+    msg: "Skipping zsh role - zsh is already the default shell on macOS"
+  when: is_macos
+
+- name: Install and configure zsh
+  when: not is_macos
   block:
     - name: Check if Zsh is installed
       ansible.builtin.command: which zsh
@@ -22,23 +32,23 @@
       become: true
       when: zsh_check.rc != 0
 
-- name: Get current shell
-  ansible.builtin.command: getent passwd {{ ansible_user_id }}
-  register: current_shell
-  changed_when: false
+    - name: Get current shell
+      ansible.builtin.command: getent passwd {{ ansible_user_id }}
+      register: current_shell
+      changed_when: false
 
-- name: Get Zsh path
-  ansible.builtin.command: which zsh
-  register: zsh_path
-  changed_when: false
-  when: "'zsh' not in current_shell.stdout"
+    - name: Get Zsh path
+      ansible.builtin.command: which zsh
+      register: zsh_path
+      changed_when: false
+      when: "'zsh' not in current_shell.stdout"
 
-- name: Change default shell to Zsh
-  ansible.builtin.user:
-    name: "{{ ansible_user_id }}"
-    shell: "{{ zsh_path.stdout }}"
-  become: true
-  when:
-    - "'zsh' not in current_shell.stdout"
-    - zsh_path.stdout is defined
-    - zsh_path.stdout != ""
+    - name: Change default shell to Zsh
+      ansible.builtin.user:
+        name: "{{ ansible_user_id }}"
+        shell: "{{ zsh_path.stdout }}"
+      become: true
+      when:
+        - "'zsh' not in current_shell.stdout"
+        - zsh_path.stdout is defined
+        - zsh_path.stdout != ""

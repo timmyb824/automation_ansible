@@ -15,6 +15,12 @@
       zsh_state: present
       tags: [zsh, shell]
 
+    - role: homebrew
+      homebrew_state: present
+      install_mas: true
+      install_slack: false
+      tags: [homebrew, package_managers]
+
     - role: awscli
       awscli_state: present
       tags: [awscli, cloud_tools]
@@ -34,12 +40,6 @@
     - role: zellij
       zellij_state: present
       tags: [zellij, shell]
-
-    - role: homebrew
-      homebrew_state: present
-      install_mas: true
-      install_slack: true
-      tags: [homebrew, package_managers]
 
     - role: atuin
       atuin_state: present
