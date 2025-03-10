@@ -18,31 +18,31 @@
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       when: brew_check.rc != 0
 
-    - name: Add Homebrew to PATH for Intel Macs
-      ansible.builtin.lineinfile:
-        path: "{{ ansible_env.HOME }}/.zshrc"
-        line: 'export PATH="/usr/local/bin:$PATH"'
-        state: present
-      when:
-        - ansible_architecture != "arm64"
-        - ansible_os_family == "Darwin"
+    # - name: Add Homebrew to PATH for Intel Macs
+    #   ansible.builtin.lineinfile:
+    #     path: "{{ ansible_env.HOME }}/.zshrc"
+    #     line: 'export PATH="/usr/local/bin:$PATH"'
+    #     state: present
+    #   when:
+    #     - ansible_architecture != "arm64"
+    #     - ansible_os_family == "Darwin"
 
-    - name: Add Homebrew to PATH for Apple Silicon Macs
-      ansible.builtin.lineinfile:
-        path: "{{ ansible_env.HOME }}/.zshrc"
-        line: 'export PATH="/opt/homebrew/bin:$PATH"'
-        state: present
-      when:
-        - ansible_architecture == "arm64"
-        - ansible_os_family == "Darwin"
+    # - name: Add Homebrew to PATH for Apple Silicon Macs
+    #   ansible.builtin.lineinfile:
+    #     path: "{{ ansible_env.HOME }}/.zshrc"
+    #     line: 'export PATH="/opt/homebrew/bin:$PATH"'
+    #     state: present
+    #   when:
+    #     - ansible_architecture == "arm64"
+    #     - ansible_os_family == "Darwin"
 
-    - name: Remove legacy commands
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /usr/local/bin/op
-      when: homebrew_state != 'absent'
+    # - name: Remove legacy commands
+    #   ansible.builtin.file:
+    #     path: "{{ item }}"
+    #     state: absent
+    #   loop:
+    #     - /usr/local/bin/op
+    #   when: homebrew_state != 'absent'
 
     - name: Fetch package list from gist
       become: false
