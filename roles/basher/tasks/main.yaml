@@ -1,20 +1,11 @@
 ---
-- name: Verify running user
-  ansible.builtin.command: whoami
-  register: running_user
-  changed_when: false
-
 - name: Debug current user and environment
   ansible.builtin.debug:
     msg:
-      - "Current user: {{ running_user.stdout }}"
+      - "Current user: {{ ansible_user_id }}"
       - "Home directory: {{ ansible_env.HOME }}"
       - "Effective user ID: {{ ansible_effective_user_id }}"
-
-- name: Fail if not running as tbryant
-  ansible.builtin.fail:
-    msg: "This role must be run as tbryant (current user: {{ running_user.stdout }})"
-  when: running_user.stdout != 'tbryant'
+    verbosity: 1
 
 - name: Check if git is installed
   ansible.builtin.command: which git
@@ -53,7 +44,7 @@
 
     - name: Fetch basher package list from gist
       ansible.builtin.uri:
-        url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw/basher.list"
+        url: "{{ basher_package_list }}"
         return_content: true
         validate_certs: true
         method: GET
@@ -99,7 +90,7 @@
   block:
     - name: Fetch basher package list for uninstallation
       ansible.builtin.uri:
-        url: "https://gist.githubusercontent.com/timmyb824/807597f33b14eceeb26e4e6f81d45962/raw/basher.list"
+        url: "{{ basher_package_list }}"
         return_content: true
         validate_certs: true
         method: GET
