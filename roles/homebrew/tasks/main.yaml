@@ -62,25 +62,10 @@
         dest: "/tmp/Brewfile"
       when: homebrew_state != 'absent'
 
-    - name: Parse package list
-      ansible.builtin.set_fact:
-        brew_packages: >-
-          {{ package_list.content.split('\n')
-          | map('trim')
-          | reject('search', '^#')
-          | map('split', '#')
-          | map('first')
-          | map('trim')
-          | select('match', '^brew ".*"$')
-          | map('regex_replace', '^brew "(.*)"$', '\1')
-          | list }}
-      when: homebrew_state != 'absent'
-
     - name: Install packages from Brewfile
-      community.general.homebrew:
-        name: "{{ item }}"
-        state: present
-      loop: "{{ brew_packages }}"
+      ansible.builtin.command: brew bundle install --file=/tmp/Brewfile
+      register: brew_bundle
+      changed_when: brew_bundle.stdout != ''
       when: homebrew_state != 'absent'
 
     - name: Install Mac App Store CLI
