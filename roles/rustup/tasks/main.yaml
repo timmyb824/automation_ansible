@@ -53,8 +53,9 @@
         creates: "{{ ansible_env.HOME }}/.cargo/bin/rustup"
       failed_when: false
 
-    - name: Verify rustup installation
-      ansible.builtin.command: which rustup
+    - name: Verify rustup installation and initialize Rust environment
+      ansible.builtin.shell: |
+        . "$HOME/.cargo/env" && which rustup && rustc --version
       register: rustup_verify
       changed_when: false
       failed_when: rustup_verify.rc != 0
