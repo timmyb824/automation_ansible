@@ -66,13 +66,17 @@
       ansible.builtin.command: brew bundle install --file=/tmp/Brewfile
       register: brew_bundle
       changed_when: brew_bundle.stdout != ''
+      failed_when: false
       when: homebrew_state != 'absent'
 
     - name: Display Brewfile installation output
       ansible.builtin.debug:
         msg: |
-          stdout: {{ brew_bundle.stdout }}
-          stderr: {{ brew_bundle.stderr }}
+          Some packages failed to install:
+          {{ brew_bundle.stderr }}
+
+          Successfully used/installed:
+          {{ brew_bundle.stdout }}
       when:
         - homebrew_state != 'absent'
         - brew_bundle.rc != 0
