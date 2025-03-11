@@ -15,6 +15,7 @@
       zsh_state: present
       tags: [zsh, shell]
 
+    # TODO: install_mas and slack not needed as its handled in brewfile
     - role: homebrew
       homebrew_state: present
       install_mas: true
