@@ -4,11 +4,11 @@
     name: fzf
     state: "{{ 'present' if fzf_state == 'present' else 'absent' }}"
 
-- name: Run fzf installer on MacOS
-  ansible.builtin.command: "$(brew --prefix)/opt/fzf/install --all"
-  args:
-    creates: "{{ ansible_env.HOME }}/.fzf.zsh"
-  when: fzf_state == "present"
+# - name: Run fzf installer on MacOS
+#   ansible.builtin.command: "$(brew --prefix)/opt/fzf/install --all"
+#   args:
+#     creates: "{{ ansible_env.HOME }}/.fzf.zsh"
+#   when: fzf_state == "present"
 
 - name: Clone fzf-git.sh
   ansible.builtin.shell: |
