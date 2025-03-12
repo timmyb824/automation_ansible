@@ -77,12 +77,17 @@
   ansible.builtin.stat:
     path: /usr/local/bin/curl
   register: local_curl
-  when: inventory_hostname in groups['vagrant']
+  when:
+    - ansible_os_family != "Darwin"
+    - groups['vagrant'] is defined
+    - inventory_hostname in groups['vagrant']
 
 - name: Temporarily move /usr/local/bin/curl if it exists
   ansible.builtin.command: mv /usr/local/bin/curl /usr/local/bin/curl.bak
   become: true
   when:
+    - ansible_os_family != "Darwin"
+    - groups['vagrant'] is defined
     - inventory_hostname in groups['vagrant']
     - local_curl.stat.exists | default(false)
   register: curl_moved
@@ -91,7 +96,10 @@
   ansible.builtin.command: which curl
   register: curl_path
   changed_when: false
-  when: inventory_hostname in groups['vagrant']
+  when:
+    - ansible_os_family != "Darwin"
+    - groups['vagrant'] is defined
+    - inventory_hostname in groups['vagrant']
 
 - name: Check current Terraform version
   ansible.builtin.command: terraform --version
@@ -116,6 +124,8 @@
   ansible.builtin.command: mv /usr/local/bin/curl.bak /usr/local/bin/curl
   become: true
   when:
+    - ansible_os_family != "Darwin"
+    - groups['vagrant'] is defined
     - inventory_hostname in groups['vagrant']
     - curl_moved is defined
     - curl_moved.changed
