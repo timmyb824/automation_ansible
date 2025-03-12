@@ -9,12 +9,12 @@
     state: present
   when: ansible_os_family == "Debian"
 
-- name: Install Homebrew if not present (MacOS)
-  ansible.builtin.shell:
-    cmd: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-  args:
-    creates: /usr/local/bin/brew
-  when: ansible_os_family == "Darwin"
+# - name: Install Homebrew if not present (MacOS)
+#   ansible.builtin.shell:
+#     cmd: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+#   args:
+#     creates: /usr/local/bin/brew
+#   when: ansible_os_family == "Darwin"
 
 - name: Install tfenv via Homebrew (MacOS)
   community.general.homebrew:
