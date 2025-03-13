@@ -1,6 +1,13 @@
 ---
-- name: Install Helm
-  when: helm_state == 'present'
+- name: Skip helm installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping helm installation on Darwin - managed through Homebrew"
+  when: ansible_os_family == "Darwin"
+
+- name: Install helm on Linux
+  when:
+    - ansible_os_family != "Darwin"
+    - helm_state == 'present'
   block:
     - name: Create temporary directory
       ansible.builtin.tempfile:
@@ -33,8 +40,10 @@
         path: "{{ temp_dir.path }}"
         state: absent
 
-- name: Uninstall Helm
-  when: helm_state == 'absent'
+- name: Uninstall helm on Linux
+  when:
+    - ansible_os_family != "Darwin"
+    - helm_state == 'absent'
   become: true
   ansible.builtin.file:
     path: "{{ helm_install_dir }}/helm"
