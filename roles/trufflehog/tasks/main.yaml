@@ -1,6 +1,13 @@
 ---
-- name: Install trufflehog
-  when: trufflehog_state == 'present'
+- name: Skip trufflehog installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping trufflehog installation on Darwin - managed through Homebrew"
+  when: ansible_os_family == "Darwin"
+
+- name: Install trufflehog on Linux
+  when:
+    - ansible_os_family != "Darwin"
+    - trufflehog_state == 'present'
   block:
     - name: Create temporary directory
       ansible.builtin.tempfile:
@@ -33,8 +40,10 @@
         path: "{{ temp_dir.path }}"
         state: absent
 
-- name: Uninstall trufflehog
-  when: trufflehog_state == 'absent'
+- name: Uninstall trufflehog on Linux
+  when:
+    - ansible_os_family != "Darwin"
+    - trufflehog_state == 'absent'
   become: true
   ansible.builtin.file:
     path: "{{ trufflehog_install_dir }}/trufflehog"

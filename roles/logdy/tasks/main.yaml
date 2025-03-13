@@ -1,17 +1,13 @@
 ---
-- name: Check system compatibility
-  ansible.builtin.set_fact:
-    logdy_supported: "{{ ansible_system == 'Linux' }}"
-
-- name: Warn if system is not supported
+- name: Skip logdy installation on Darwin
   ansible.builtin.debug:
-    msg: "Logdy installation is not supported on {{ ansible_system }}. Only Linux is supported."
-  when: not logdy_supported
+    msg: "Skipping logdy installation on Darwin - managed through Homebrew"
+  when: ansible_os_family == "Darwin"
 
-- name: Install logdy
+- name: Install logdy on Linux
   when:
+    - ansible_os_family != "Darwin"
     - logdy_state == 'present'
-    - logdy_supported
   block:
     - name: Set binary name based on architecture
       ansible.builtin.set_fact:
@@ -25,8 +21,10 @@
         force: true
       become: true
 
-- name: Uninstall logdy
-  when: logdy_state == 'absent'
+- name: Uninstall logdy on Linux
+  when:
+    - ansible_os_family != "Darwin"
+    - logdy_state == 'absent'
   become: true
   ansible.builtin.file:
     path: "{{ logdy_install_dir }}/logdy"

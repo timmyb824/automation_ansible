@@ -1,6 +1,13 @@
 ---
-- name: Install k9s
-  when: k9s_state == 'present'
+- name: Skip k9s installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping k9s installation on Darwin - managed through Homebrew"
+  when: ansible_os_family == "Darwin"
+
+- name: Install k9s on Linux
+  when:
+    - ansible_os_family != "Darwin"
+    - k9s_state == 'present'
   block:
     - name: Create temporary directory
       ansible.builtin.tempfile:
@@ -33,8 +40,10 @@
         path: "{{ temp_dir.path }}"
         state: absent
 
-- name: Uninstall k9s
-  when: k9s_state == 'absent'
+- name: Uninstall k9s on Linux
+  when:
+    - ansible_os_family != "Darwin"
+    - k9s_state == 'absent'
   become: true
   ansible.builtin.file:
     path: "{{ k9s_install_dir }}/k9s"

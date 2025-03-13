@@ -1,6 +1,13 @@
 ---
-- name: Install gitleaks
-  when: gitleaks_state == 'present'
+- name: Skip gitleaks installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping gitleaks installation on Darwin - managed through Homebrew"
+  when: ansible_os_family == "Darwin"
+
+- name: Install gitleaks on Linux
+  when:
+    - ansible_os_family != "Darwin"
+    - gitleaks_state == 'present'
   block:
     - name: Create temporary directory
       ansible.builtin.tempfile:
@@ -33,8 +40,10 @@
         path: "{{ temp_dir.path }}"
         state: absent
 
-- name: Uninstall gitleaks
-  when: gitleaks_state == 'absent'
+- name: Uninstall gitleaks on Linux
+  when:
+    - ansible_os_family != "Darwin"
+    - gitleaks_state == 'absent'
   become: true
   ansible.builtin.file:
     path: "{{ gitleaks_install_dir }}/gitleaks"
