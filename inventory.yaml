@@ -16,7 +16,7 @@ all:
     servers:
       hosts:
         ######TEST######
-        ubuntu_test:
+        linux-sandbox:
           ansible_host: 192.168.86.133
           ansible_connection: ssh
           ansible_port: 22
