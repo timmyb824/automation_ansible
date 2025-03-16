@@ -9,18 +9,31 @@
     state: present
   when: ansible_os_family == "Debian"
 
-# - name: Install Homebrew if not present (MacOS)
-#   ansible.builtin.shell:
-#     cmd: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-#   args:
-#     creates: /usr/local/bin/brew
-#   when: ansible_os_family == "Darwin"
+- name: Skip tfenv installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping tfenv installation on Darwin - managed through Homebrew"
+  when: tfenv_state == "present" and ansible_os_family == "Darwin"
 
-- name: Install tfenv via Homebrew (MacOS)
-  community.general.homebrew:
-    name: tfenv
-    state: present
-  when: ansible_os_family == "Darwin"
+- name: Initialize Homebrew environment
+  ansible.builtin.shell: eval "$(/opt/homebrew/bin/brew shellenv)" && echo $PATH
+  register: brew_env
+  changed_when: false
+  when: tfenv_state == "present" and ansible_os_family == "Darwin"
+
+- name: Check if tfenv is available
+  ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% endif %}
+    which tfenv
+  register: tfenv_check
+  changed_when: false
+  failed_when: false
+
+- name: Fail if tfenv is not installed
+  ansible.builtin.fail:
+    msg: "tfenv could not be found. Please ensure it's installed via Homebrew."
+  when: tfenv_check.rc != 0 and tfenv_state == "present" and ansible_os_family == "Darwin"
 
 - name: Set Linux installation tasks
   when: ansible_os_family != "Darwin"
@@ -60,19 +73,6 @@
         - tfenv
         - terraform
 
-    # - name: Add tfenv bin directory to PATH in .bashrc
-    #   ansible.builtin.lineinfile:
-    #     path: "{{ ansible_env.HOME }}/.bashrc"
-    #     line: 'export PATH="$HOME/.local/bin:$PATH"'
-    #     state: present
-
-    # - name: Add tfenv bin directory to PATH in .zshrc if exists
-    #   ansible.builtin.lineinfile:
-    #     path: "{{ ansible_env.HOME }}/.zshrc"
-    #     line: 'export PATH="$HOME/.local/bin:$PATH"'
-    #     state: present
-    #   when: lookup('file', ansible_env.HOME + '/.zshrc', errors='ignore') != ''
-
 - name: Check if /usr/local/bin/curl exists
   ansible.builtin.stat:
     path: /usr/local/bin/curl
@@ -102,7 +102,11 @@
     - inventory_hostname in groups['vagrant']
 
 - name: Check current Terraform version
-  ansible.builtin.command: terraform --version
+  ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% endif %}
+    terraform --version
   register: terraform_current_version
   changed_when: false
   failed_when: false
@@ -110,8 +114,12 @@
 - name: Install specified Terraform version
   ansible.builtin.shell:
     cmd: |
-      # Ensure PATH is set correctly
+      {% if ansible_os_family == 'Darwin' %}
+      eval "$(/opt/homebrew/bin/brew shellenv)"
+      {% else %}
+      # Ensure PATH is set correctly for Linux
       export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+      {% endif %}
 
       # Install and use the specified version
       tfenv install {{ tf_version | default('latest') }} && tfenv use {{ tf_version | default('latest') }}
