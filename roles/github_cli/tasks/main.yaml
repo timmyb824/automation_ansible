@@ -13,18 +13,26 @@
   when: gh_cli_state == 'absent'
 
 - name: Check gh CLI installation
-  ansible.builtin.command: which gh
+  ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% endif %}
+    which gh
   register: gh_check
   changed_when: false
   failed_when: false
 
 - name: Fail if gh CLI is not installed
   ansible.builtin.fail:
-    msg: "GitHub CLI (gh) is not installed. Please ensure it's installed via Homebrew (macOS) or pkgx (Linux)."
+    msg: "GitHub CLI (gh) is not installed. Please ensure it's installed."
   when: gh_check.rc != 0
 
 - name: Check GitHub CLI auth status
-  ansible.builtin.command: gh auth status
+  ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% endif %}
+    gh auth status
   register: gh_auth_status
   changed_when: false
   failed_when: false
@@ -63,7 +71,11 @@
   no_log: false
 
 - name: Check GitHub CLI auth status
-  ansible.builtin.command: gh auth status
+  ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% endif %}
+    gh auth status
   register: gh_auth_status
   changed_when: false
   failed_when: false
@@ -81,7 +93,11 @@
     - gh_cli_state == 'present'
 
 - name: Authenticate GitHub CLI with Token
-  ansible.builtin.shell: gh auth login --with-token < /tmp/gh_token.txt
+  ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% endif %}
+    gh auth login --with-token < /tmp/gh_token.txt
   register: gh_auth
   changed_when: gh_auth.rc == 0
   failed_when: gh_auth.rc != 0
@@ -110,11 +126,14 @@
 
 - name: Parse package list
   ansible.builtin.set_fact:
-    # gh_extensions: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
     gh_extensions: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
 
 - name: Get list of installed extensions
-  ansible.builtin.command: gh extension list
+  ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% endif %}
+    gh extension list
   register: installed_extensions
   changed_when: false
   failed_when: false
@@ -126,7 +145,11 @@
   when: gh_cli_state == 'present'
 
 - name: Install GitHub CLI extensions
-  ansible.builtin.command: "gh extension install {{ item }}"
+  ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% endif %}
+    gh extension install {{ item }}
   loop: "{{ gh_extensions }}"
   when:
     - gh_cli_state == 'present'
@@ -140,7 +163,11 @@
     - '"there is already an installed extension" not in gh_extension_install.stderr'
 
 - name: Update GitHub CLI extensions
-  ansible.builtin.command: gh extension upgrade {{ item }}
+  ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% endif %}
+    gh extension upgrade {{ item }}
   loop: "{{ gh_extensions }}"
   when:
     - gh_cli_state == 'present'

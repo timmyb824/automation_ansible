@@ -1,6 +1,11 @@
 ---
-- name: Install GitHub CLI via Homebrew
-  community.general.homebrew:
-    name: gh
-    state: "{{ gh_cli_state }}"
+- name: Skip GitHub CLI installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping GitHub CLI installation on Darwin - managed through Homebrew"
+  when: gh_cli_state != 'absent'
+
+- name: Initialize Homebrew environment
+  ansible.builtin.shell: eval "$(/opt/homebrew/bin/brew shellenv)" && echo $PATH
+  register: brew_env
+  changed_when: false
   when: gh_cli_state != 'absent'
