@@ -63,9 +63,25 @@
   register: shell_name
   changed_when: false
 
+- name: Set Homebrew paths for Darwin
+  when: ansible_os_family == 'Darwin'
+  block:
+    - name: Get Homebrew prefix
+      ansible.builtin.command: brew --prefix
+      register: brew_prefix
+      changed_when: false
+
+    - name: Update PATH for Darwin
+      ansible.builtin.set_fact:
+        brew_paths: "{{ brew_prefix.stdout }}/bin:{{ brew_prefix.stdout }}/sbin:{{ ansible_env.PATH }}"
+
 - name: Initialize atuin
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    export PATH="{{ brew_paths }}"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    {% endif %}
     atuin init {{ shell_name.stdout }}
   args:
     executable: /bin/bash
@@ -74,7 +90,11 @@
 
 - name: Check atuin login status
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    export PATH="{{ brew_paths }}"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    {% endif %}
     atuin status
   args:
     executable: /bin/bash
@@ -94,7 +114,11 @@
 - name: Login to atuin
   ansible.builtin.shell: |
     set -x  # Enable command tracing
+    {% if ansible_os_family == 'Darwin' %}
+    export PATH="{{ brew_paths }}"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    {% endif %}
     atuin login -u "{{ atuin_username }}" -p "{{ atuin_password }}" -k "{{ atuin_key }}" || {
       echo "Login failed with exit code $?"
       exit 1
