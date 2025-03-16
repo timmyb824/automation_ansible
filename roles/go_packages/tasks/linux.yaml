@@ -1,0 +1,32 @@
+---
+- name: Check current Go version
+  ansible.builtin.command: go version
+  register: go_current_version
+  changed_when: false
+  failed_when: false
+
+- name: Create temporary directory
+  ansible.builtin.file:
+    path: /tmp/go_install
+    state: directory
+    mode: "0755"
+  when: go_packages_state != "absent"
+
+- name: Download and extract Go
+  become: true
+  ansible.builtin.unarchive:
+    src: "https://go.dev/dl/go{{ go_version }}.linux-{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}.tar.gz"
+    dest: "{{ go_install_dir }}"
+    remote_src: true
+    mode: "0755"
+    creates: "{{ go_install_dir }}/go/bin/go"
+  when: >
+    go_packages_state != "absent" and
+    (go_current_version.rc != 0 or go_version not in (go_current_version.stdout | default('')))
+
+- name: Remove Go installation
+  become: true
+  ansible.builtin.file:
+    path: "{{ go_install_dir }}/go"
+    state: absent
+  when: go_packages_state == "absent"

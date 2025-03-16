@@ -1,0 +1,31 @@
+---
+- name: Skip Go installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping Go installation on Darwin - managed through Homebrew"
+  when: go_packages_state == "present"
+
+- name: Initialize Homebrew environment
+  ansible.builtin.shell: eval "$(/opt/homebrew/bin/brew shellenv)" && echo $PATH
+  register: brew_env
+  changed_when: false
+  when: go_packages_state == "present"
+
+- name: Check if Go is available
+  ansible.builtin.shell: |
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    which go
+  register: go_check
+  changed_when: false
+  failed_when: false
+  when: go_packages_state == "present"
+
+- name: Fail if Go is not installed
+  ansible.builtin.fail:
+    msg: "Go could not be found. Please ensure it's installed via Homebrew."
+  when: go_packages_state == "present" and go_check.rc != 0
+
+# Uninstall tasks
+- name: Uninstall Go
+  ansible.builtin.debug:
+    msg: "To uninstall Go on Darwin, please remove it from your Brewfile and run 'brew bundle cleanup --force'"
+  when: go_packages_state == "absent"

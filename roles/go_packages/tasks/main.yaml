@@ -1,65 +1,6 @@
 ---
-- name: Install Go on MacOS
-  when: ansible_os_family == "Darwin"
-  block:
-    - name: Install Go via Homebrew
-      community.general.homebrew:
-        name: go
-        state: "{{ 'absent' if go_packages_state == 'absent' else 'latest' }}"
-
-- name: Install Go on Linux
-  when: ansible_os_family != "Darwin"
-  block:
-    - name: Check current Go version
-      ansible.builtin.command: go version
-      register: go_current_version
-      changed_when: false
-      failed_when: false
-
-    - name: Create temporary directory
-      ansible.builtin.file:
-        path: /tmp/go_install
-        state: directory
-        mode: "0755"
-      when: go_packages_state != "absent"
-
-    - name: Download and extract Go
-      become: true
-      ansible.builtin.unarchive:
-        src: "https://go.dev/dl/go{{ go_version }}.linux-{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}.tar.gz"
-        dest: "{{ go_install_dir }}"
-        remote_src: true
-        mode: "0755"
-        creates: "{{ go_install_dir }}/go/bin/go"
-      when: >
-        go_packages_state != "absent" and
-        (go_current_version.rc != 0 or go_version not in (go_current_version.stdout | default('')))
-
-    - name: Remove Go installation
-      become: true
-      ansible.builtin.file:
-        path: "{{ go_install_dir }}/go"
-        state: absent
-      when: go_packages_state == "absent"
-
-    # - name: Set up environment in bashrc
-    #   ansible.builtin.blockinfile:
-    #     path: "{{ ansible_env.HOME }}/.bashrc"
-    #     marker: "# {mark} ANSIBLE MANAGED BLOCK - GO ENVIRONMENT"
-    #     block: |
-    #       export GOPATH="{{ go_path }}"
-    #       export PATH=$PATH:{{ go_install_dir }}/go/bin:$GOPATH/bin
-    #     state: "{{ 'absent' if go_packages_state == 'absent' else 'present' }}"
-
-    # - name: Set up environment in zshrc if exists
-    #   ansible.builtin.blockinfile:
-    #     path: "{{ ansible_env.HOME }}/.zshrc"
-    #     marker: "# {mark} ANSIBLE MANAGED BLOCK - GO ENVIRONMENT"
-    #     block: |
-    #       export GOPATH="{{ go_path }}"
-    #       export PATH=$PATH:{{ go_install_dir }}/go/bin:$GOPATH/bin
-    #     state: "{{ 'absent' if go_packages_state == 'absent' else 'present' }}"
-    #   when: lookup('file', ansible_env.HOME + '/.zshrc', errors='ignore') != ''
+- name: Include OS-specific tasks
+  ansible.builtin.include_tasks: "{{ ansible_os_family | lower }}.yaml"
 
 - name: Create GOPATH directory
   ansible.builtin.file:
@@ -78,13 +19,6 @@
     - "{{ ansible_env.HOME }}/go/bin"
   when: go_packages_state != 'absent'
 
-# - name: Ensure Go bin directory is in PATH
-#   ansible.builtin.lineinfile:
-#     path: "{{ ansible_env.HOME }}/.zshrc"
-#     line: 'export PATH="$HOME/go/bin:$PATH"'
-#     state: present
-#   when: go_packages_state != 'absent'
-
 - name: Set OS-specific gist filename
   ansible.builtin.set_fact:
     gist_filename: "go_{{ ansible_system | lower }}.list"
@@ -102,9 +36,7 @@
 - name: Parse package list
   become: false
   ansible.builtin.set_fact:
-    # go_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list + go_extra_packages }}"
     go_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list + go_extra_packages }}"
-
   when: go_packages_state != 'absent'
 
 - name: Debug - Show gist content
@@ -119,6 +51,9 @@
 
 - name: Get list of installed packages
   ansible.builtin.shell: |
+    {% if ansible_os_family == "Darwin" %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% endif %}
     set -o pipefail
     for dir in $(go env GOPATH | tr ':' ' '); do
       if [ -d "$dir/bin" ]; then
@@ -129,7 +64,7 @@
   changed_when: false
   failed_when: false
   environment:
-    PATH: "{{ go_install_dir }}/go/bin:{{ ansible_env.HOME }}/go/bin:{{ ansible_env.PATH }}"
+    PATH: "{{ ansible_env.HOME }}/go/bin:{{ ansible_env.PATH }}"
     GOPATH: "{{ go_path }}"
   when: go_packages_state != 'absent'
 
@@ -140,7 +75,10 @@
 
 - name: Install Go packages
   ansible.builtin.shell: |
-    export PATH="{{ go_install_dir }}/go/bin:{{ ansible_env.HOME }}/go/bin:$PATH"
+    {% if ansible_os_family == "Darwin" %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% endif %}
+    export PATH="{{ ansible_env.HOME }}/go/bin:$PATH"
     export GOPATH="{{ go_path }}"
     go install {{ item if '@' in item else item + '@latest' }}
   loop: "{{ go_packages | default([]) }}"
