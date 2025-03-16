@@ -1,23 +1,25 @@
 ---
-- name: Install fzf on MacOS
-  community.general.homebrew:
-    name: fzf
-    state: "{{ 'present' if fzf_state == 'present' else 'absent' }}"
-
-# - name: Run fzf installer on MacOS
-#   ansible.builtin.command: "$(brew --prefix)/opt/fzf/install --all"
-#   args:
-#     creates: "{{ ansible_env.HOME }}/.fzf.zsh"
-#   when: fzf_state == "present"
-
-- name: Clone fzf-git.sh
-  ansible.builtin.shell: |
-    ghq get https://github.com/junegunn/fzf-git.sh
-  args:
-    executable: /bin/bash
+- name: Skip fzf installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping fzf installation on Darwin - managed through Homebrew"
   when: fzf_state == "present"
 
-- name: Install fd-find with homebrew
-  community.general.homebrew:
-    name: fd
-    state: "{{ 'present' if fzf_state == 'present' else 'absent' }}"
+- name: Skip fd-find installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping fd-find installation on Darwin - managed through Homebrew"
+  when: fzf_state == "present"
+
+- name: Set Homebrew environment for Darwin
+  when: fzf_state == "present"
+  block:
+    - name: Initialize Homebrew environment
+      ansible.builtin.shell: eval "$(/opt/homebrew/bin/brew shellenv)" && echo $PATH
+      register: brew_env
+      changed_when: false
+
+    - name: Clone fzf-git.sh using ghq
+      ansible.builtin.shell: |
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+        ghq get https://github.com/junegunn/fzf-git.sh
+      args:
+        executable: /bin/bash
