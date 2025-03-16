@@ -1,47 +1,31 @@
 ---
-- name: Check if op CLI is installed
-  ansible.builtin.command: which op
+- name: Skip 1Password CLI installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping 1Password CLI installation on Darwin - managed through Homebrew"
+  when: op_state == "present"
+
+- name: Initialize Homebrew environment
+  ansible.builtin.shell: eval "$(/opt/homebrew/bin/brew shellenv)" && echo $PATH
+  register: brew_env
+  changed_when: false
+  when: op_state == "present"
+
+- name: Check if op CLI is available
+  ansible.builtin.shell: |
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    which op
   register: op_check
   changed_when: false
   failed_when: false
   when: op_state == "present"
 
-- name: Download 1Password CLI package
+- name: Fail if 1Password CLI is not installed
+  ansible.builtin.fail:
+    msg: "1Password CLI could not be found. Please ensure it's installed via Homebrew."
   when: op_state == "present" and op_check.rc != 0
-  ansible.builtin.get_url:
-    url: "https://cache.agilebits.com/dist/1P/op2/pkg/{{ op_version }}/op_apple_universal_{{ op_version | replace('v', '') }}.pkg"
-    dest: "/tmp/op_apple_universal_{{ op_version | replace('v', '') }}.pkg"
-    mode: "0644"
-
-- name: Install 1Password CLI package
-  when: op_state == "present" and op_check.rc != 0
-  ansible.builtin.command:
-    cmd: "installer -pkg /tmp/op_apple_universal_{{ op_version | replace('v', '') }}.pkg -target /"
-  become: true
-
-- name: Verify 1Password CLI installation
-  when: op_state == "present" and op_check.rc != 0
-  ansible.builtin.command: which op
-  register: op_verify
-  changed_when: false
-  failed_when: op_verify.rc != 0
 
 # Uninstall tasks
-- name: Check if op CLI exists
-  ansible.builtin.stat:
-    path: "/usr/local/bin/op"
-  register: op_binary
+- name: Uninstall 1Password CLI
+  ansible.builtin.debug:
+    msg: "To uninstall 1Password CLI on Darwin, please remove it from your Brewfile and run 'brew bundle cleanup --force'"
   when: op_state == "absent"
-
-- name: Remove 1Password CLI binary
-  ansible.builtin.file:
-    path: "/usr/local/bin/op"
-    state: absent
-  become: true
-  when: op_state == "absent" and op_binary.stat.exists | default(false)
-
-# Cleanup tasks
-- name: Clean up temporary files
-  ansible.builtin.file:
-    path: "/tmp/op_apple_universal_{{ op_version | replace('v', '') }}.pkg"
-    state: absent
