@@ -48,8 +48,8 @@
       become: false
       ansible.builtin.uri:
         url: "{{ gist_base_url }}/Brewfile"
-        return_content: yes
-        validate_certs: yes
+        return_content: true
+        validate_certs: true
         method: GET
       register: package_list
       delegate_to: localhost
@@ -63,7 +63,9 @@
       when: homebrew_state != 'absent'
 
     - name: Install packages from Brewfile
-      ansible.builtin.command: brew bundle install --file=/tmp/Brewfile
+      ansible.builtin.command: |
+        export PATH="/opt/homebrew/bin:$PATH"
+        brew bundle install --file=/tmp/Brewfile
       register: brew_bundle
       changed_when: brew_bundle.stdout != ''
       failed_when: false
