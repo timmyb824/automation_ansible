@@ -44,13 +44,3 @@
   ansible.builtin.debug:
     msg: "To uninstall sops and age on Darwin, please remove them from your Brewfile and run 'brew bundle cleanup --force'"
   when: sops_state == "absent" or age_state == "absent"
-
-# Cleanup tasks
-- name: Clean up temporary files
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  with_items:
-    - "/tmp/sops-{{ sops_version }}.darwin.arm64"
-    - "/tmp/age-{{ age_version }}-darwin-arm64.tar.gz"
-    - "/tmp/age"
