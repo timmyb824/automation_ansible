@@ -2,17 +2,6 @@
 - name: Include OS-specific tasks
   ansible.builtin.include_tasks: "{{ ansible_os_family | lower }}.yaml"
 
-- name: Check if Micro editor is installed
-  ansible.builtin.command: which micro
-  register: micro_check
-  changed_when: false
-  failed_when: false
-
-- name: Fail if Micro editor is not installed
-  ansible.builtin.fail:
-    msg: "Micro editor is not installed. Please ensure it's installed via Homebrew (macOS) or apt (Linux)."
-  when: micro_check.rc != 0
-
 - name: Fetch package list from gist
   become: false
   ansible.builtin.uri:
@@ -33,15 +22,19 @@
   ansible.builtin.shell: |
     {% if ansible_os_family == "Darwin" %}
     eval "$(/opt/homebrew/bin/brew shellenv)"
+    export PATH="/opt/homebrew/bin:$PATH"
     {% endif %}
     micro -plugin list
   register: installed_plugins
   changed_when: false
+  environment:
+    PATH: "{{ '/opt/homebrew/bin:' + ansible_env.PATH if ansible_os_family == 'Darwin' else ansible_env.PATH }}"
 
 - name: Install Micro plugins
   ansible.builtin.shell: |
     {% if ansible_os_family == "Darwin" %}
     eval "$(/opt/homebrew/bin/brew shellenv)"
+    export PATH="/opt/homebrew/bin:$PATH"
     {% endif %}
     micro -plugin install {{ item }}
   register: plugin_install
@@ -54,11 +47,14 @@
     - item | trim != ''
     - item not in installed_plugins.stdout
     - micro_plugins_state != 'absent'
+  environment:
+    PATH: "{{ '/opt/homebrew/bin:' + ansible_env.PATH if ansible_os_family == 'Darwin' else ansible_env.PATH }}"
 
 - name: Update Micro plugins
   ansible.builtin.shell: |
     {% if ansible_os_family == "Darwin" %}
     eval "$(/opt/homebrew/bin/brew shellenv)"
+    export PATH="/opt/homebrew/bin:$PATH"
     {% endif %}
     micro -plugin update {{ item }}
   register: plugin_update
@@ -71,3 +67,5 @@
     - item | trim != ''
     - item in installed_plugins.stdout
     - micro_plugins_state == 'latest'
+  environment:
+    PATH: "{{ '/opt/homebrew/bin:' + ansible_env.PATH if ansible_os_family == 'Darwin' else ansible_env.PATH }}"
