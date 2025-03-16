@@ -1,8 +1,13 @@
 ---
 - name: Install npm packages for Helix
   ansible.builtin.shell: |
-    export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
-    eval "$(fnm env --use-on-cd)"
+    # Use Homebrew's fnm on Darwin, system fnm on Linux
+    if [ -x /opt/homebrew/bin/fnm ]; then
+      eval "$(/opt/homebrew/bin/brew shellenv)"
+      eval "$(/opt/homebrew/bin/fnm env --use-on-cd)"
+    else
+      eval "$(fnm env --use-on-cd)"
+    fi
     npm install -g {{ item.name }}{{ '@' + item.version if item.version is defined else '' }}
   register: npm_install
   changed_when: npm_install.rc == 0
@@ -13,3 +18,5 @@
   loop: "{{ helix_npm_packages }}"
   when: helix_state == "present"
   ignore_errors: true
+  environment:
+    PATH: "{{ '/opt/homebrew/bin:' + ansible_env.PATH if ansible_os_family == 'Darwin' else ansible_env.PATH }}"
