@@ -1,0 +1,120 @@
+---
+- name: Create local bin directory
+  ansible.builtin.file:
+    path: "{{ helix_bin_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Check if helix is installed
+  ansible.builtin.command: which hx
+  register: helix_check
+  changed_when: false
+  failed_when: false
+
+- name: Remove APT version of Helix if exists
+  when: ansible_os_family == "Debian"
+  block:
+    - name: Check if APT version exists
+      ansible.builtin.command: dpkg -l helix
+      register: helix_apt_check
+      changed_when: false
+      failed_when: false
+
+    - name: Remove APT version
+      when: helix_apt_check.rc == 0
+      block:
+        - name: Remove helix package
+          ansible.builtin.apt:
+            name: helix
+            state: absent
+          become: true
+
+        - name: Remove helix PPA
+          ansible.builtin.apt_repository:
+            repo: ppa:maveonair/helix-editor
+            state: absent
+          become: true
+
+        - name: Update apt cache
+          ansible.builtin.apt:
+            update_cache: true
+          become: true
+
+- name: Install build dependencies
+  when: helix_state == "present" and ansible_os_family == "Debian"
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - gcc
+      - g++
+    state: present
+  become: true
+
+- name: Build and install helix from source
+  when:
+    - helix_state == "present"
+    - helix_check.rc != 0
+  block:
+    - name: Clone using ghq
+      when: helix_use_ghq
+      ansible.builtin.command:
+        cmd: ghq get https://github.com/helix-editor/helix
+      register: clone_result
+      changed_when: clone_result.rc == 0
+      failed_when: false
+
+    - name: Clone using git
+      when: not helix_use_ghq
+      ansible.builtin.git:
+        repo: https://github.com/helix-editor/helix.git
+        dest: "{{ helix_source_dir }}"
+        version: master
+
+    - name: Set helix directory path
+      ansible.builtin.set_fact:
+        helix_dir: "{{ ghq_root | default(helix_source_dir) }}/github.com/helix-editor/helix"
+      when: helix_use_ghq
+
+    - name: Set helix directory path (non-ghq)
+      ansible.builtin.set_fact:
+        helix_dir: "{{ helix_source_dir }}"
+      when: not helix_use_ghq
+
+    - name: Source cargo environment
+      ansible.builtin.shell:
+        cmd: source "$HOME/.cargo/env" && echo "$PATH"
+      args:
+        executable: /bin/bash
+      register: cargo_env
+      changed_when: false
+
+    - name: Install Helix using cargo
+      ansible.builtin.command:
+        cmd: cargo install --path helix-term --locked
+        chdir: "{{ helix_dir }}"
+      register: cargo_result
+      changed_when: cargo_result.rc == 0
+      environment:
+        PATH: "{{ cargo_env.stdout }}:{{ ansible_env.PATH }}"
+
+- name: Include language server installation tasks
+  when: helix_state == "present"
+  block:
+    - name: Include npm packages tasks
+      ansible.builtin.include_tasks: npm_packages.yaml
+
+    - name: Include pip packages tasks
+      ansible.builtin.include_tasks: pip_packages.yaml
+
+    - name: Include cargo packages tasks
+      ansible.builtin.include_tasks: cargo_packages.yaml
+
+    - name: Include go packages tasks
+      ansible.builtin.include_tasks: go_packages.yaml
+
+    - name: Include ruby packages tasks
+      ansible.builtin.include_tasks: ruby_packages.yaml
+
+- name: Install helix-gpt
+  when: helix_state == "present" and helix_install_gpt
+  ansible.builtin.include_tasks: helix_gpt.yaml

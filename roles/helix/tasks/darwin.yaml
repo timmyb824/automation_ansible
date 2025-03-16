@@ -1,0 +1,84 @@
+---
+- name: Skip helix installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping helix installation on Darwin - managed through Homebrew"
+  when: helix_state == "present"
+
+- name: Initialize Homebrew environment
+  ansible.builtin.shell: eval "$(/opt/homebrew/bin/brew shellenv)" && echo $PATH
+  register: brew_env
+  changed_when: false
+  when: helix_state == "present"
+
+- name: Check if helix is available
+  ansible.builtin.shell: |
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    which hx
+  register: helix_check
+  changed_when: false
+  failed_when: false
+  when: helix_state == "present"
+
+- name: Fail if helix is not installed
+  ansible.builtin.fail:
+    msg: "Helix editor could not be found. Please ensure it's installed via Homebrew."
+  when: helix_state == "present" and helix_check.rc != 0
+
+# Language server installations
+- name: Include language server installation tasks
+  when: helix_state == "present"
+  block:
+    - name: Set Homebrew environment for npm
+      ansible.builtin.set_fact:
+        npm_env:
+          PATH: "/opt/homebrew/bin:{{ ansible_env.PATH }}"
+          NODE_PATH: "/opt/homebrew/lib/node_modules"
+
+    - name: Include npm packages tasks
+      ansible.builtin.include_tasks: npm_packages.yaml
+      environment: "{{ npm_env }}"
+
+    - name: Set Homebrew environment for pip
+      ansible.builtin.set_fact:
+        pip_env:
+          PATH: "/opt/homebrew/bin:{{ ansible_env.PATH }}"
+          PYTHONPATH: "/opt/homebrew/lib/python3.11/site-packages"
+
+    - name: Include pip packages tasks
+      ansible.builtin.include_tasks: pip_packages.yaml
+      environment: "{{ pip_env }}"
+
+    - name: Set Homebrew environment for cargo
+      ansible.builtin.set_fact:
+        cargo_env:
+          PATH: "/opt/homebrew/bin:{{ ansible_env.PATH }}"
+
+    - name: Include cargo packages tasks
+      ansible.builtin.include_tasks: cargo_packages.yaml
+      environment: "{{ cargo_env }}"
+
+    - name: Set Homebrew environment for go
+      ansible.builtin.set_fact:
+        go_env:
+          PATH: "/opt/homebrew/bin:{{ ansible_env.PATH }}"
+          GOPATH: "{{ ansible_env.HOME }}/go"
+
+    - name: Include go packages tasks
+      ansible.builtin.include_tasks: go_packages.yaml
+      environment: "{{ go_env }}"
+
+    - name: Set Homebrew environment for ruby
+      ansible.builtin.set_fact:
+        ruby_env:
+          PATH: "/opt/homebrew/bin:{{ ansible_env.PATH }}"
+          GEM_HOME: "{{ ansible_env.HOME }}/.gem"
+
+    - name: Include ruby packages tasks
+      ansible.builtin.include_tasks: ruby_packages.yaml
+      environment: "{{ ruby_env }}"
+
+# Uninstall tasks
+- name: Uninstall helix
+  ansible.builtin.debug:
+    msg: "To uninstall helix on Darwin, please remove it from your Brewfile and run 'brew bundle cleanup --force'"
+  when: helix_state == "absent"

@@ -1,10 +1,40 @@
 ---
-- name: Skip helix installation on Darwin
-  ansible.builtin.debug:
-    msg: "Skipping helix installation on Darwin - managed through Homebrew"
-  when: ansible_os_family == "Darwin"
+- name: Handle Darwin-specific tasks
+  when: ansible_os_family == "Darwin" and helix_state == "present"
+  block:
+    - name: Initialize Homebrew environment
+      ansible.builtin.shell: eval "$(/opt/homebrew/bin/brew shellenv)" && echo $PATH
+      register: brew_env
+      changed_when: false
 
-- name: Handle helix on Linux
+    - name: Set Homebrew environment
+      ansible.builtin.set_fact:
+        homebrew_env:
+          PATH: "/opt/homebrew/bin:{{ ansible_env.PATH }}"
+          NODE_PATH: "/opt/homebrew/lib/node_modules"
+          PYTHONPATH: "/opt/homebrew/lib/python3.11/site-packages"
+          GOPATH: "{{ ansible_env.HOME }}/go"
+          GEM_HOME: "{{ ansible_env.HOME }}/.gem"
+
+    - name: Include language server installation tasks
+      environment: "{{ homebrew_env }}"
+      block:
+        - name: Include npm packages tasks
+          ansible.builtin.include_tasks: npm_packages.yaml
+
+        - name: Include pip packages tasks
+          ansible.builtin.include_tasks: pip_packages.yaml
+
+        - name: Include cargo packages tasks
+          ansible.builtin.include_tasks: cargo_packages.yaml
+
+        - name: Include go packages tasks
+          ansible.builtin.include_tasks: go_packages.yaml
+
+        - name: Include ruby packages tasks
+          ansible.builtin.include_tasks: ruby_packages.yaml
+
+- name: Handle Linux-specific tasks
   when: ansible_os_family != "Darwin"
   block:
     - name: Create local bin directory
@@ -123,6 +153,6 @@
         - name: Include ruby packages tasks
           ansible.builtin.include_tasks: ruby_packages.yaml
 
-    - name: Install helix-gpt
-      when: helix_state == "present" and helix_install_gpt
-      ansible.builtin.include_tasks: helix_gpt.yaml
+- name: Install helix-gpt
+  when: helix_state == "present" and helix_install_gpt
+  ansible.builtin.include_tasks: helix_gpt.yaml
