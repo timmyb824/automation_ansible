@@ -1,23 +1,36 @@
 ---
+- name: Skip fnm installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping fnm installation on Darwin - managed through Homebrew"
+
+- name: Initialize Homebrew environment
+  ansible.builtin.shell: eval "$(/opt/homebrew/bin/brew shellenv)" && echo $PATH
+  register: brew_env
+  changed_when: false
+
 - name: Check if npm is available
-  ansible.builtin.command: which npm
+  ansible.builtin.shell: |
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    eval "$(fnm env --use-on-cd)"
+    which npm
   register: npm_check
   changed_when: false
   failed_when: false
 
 - name: Check if fnm is in PATH
-  ansible.builtin.command: which fnm
+  ansible.builtin.shell: |
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    which fnm
   register: fnm_check
   changed_when: false
   failed_when: false
-  environment:
-    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
 
 - name: Install Node.js using fnm
   when: npm_check.rc != 0 and fnm_check.rc == 0
   block:
     - name: Install Node.js version
       ansible.builtin.shell: |
+        eval "$(/opt/homebrew/bin/brew shellenv)"
         eval "$(fnm env --use-on-cd)"
         fnm install {{ node_version }}
       register: node_install
@@ -25,6 +38,7 @@
 
     - name: Use Node.js version
       ansible.builtin.shell: |
+        eval "$(/opt/homebrew/bin/brew shellenv)"
         eval "$(fnm env --use-on-cd)"
         fnm use {{ node_version }}
       register: node_use
@@ -32,5 +46,5 @@
 
 - name: Fail if fnm is not available
   ansible.builtin.fail:
-    msg: "fnm is not available in PATH. Please ensure fnm is installed."
+    msg: "fnm is not available in PATH. Please ensure fnm is installed via Homebrew."
   when: npm_check.rc != 0 and fnm_check.rc != 0

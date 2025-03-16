@@ -1,7 +1,11 @@
 ---
 - name: Initialize fnm environment
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    {% endif %}
     eval "$(fnm env --use-on-cd)"
     echo $PATH
   register: fnm_env
@@ -16,7 +20,11 @@
 
 - name: Verify Node.js version
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    {% endif %}
     eval "$(fnm env --use-on-cd)"
     node --version
   register: node_version_check
@@ -27,7 +35,11 @@
 
 - name: Verify npm is available
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    {% endif %}
     eval "$(fnm env --use-on-cd)"
     which npm
   register: npm_check
@@ -50,12 +62,15 @@
 - name: Parse package list
   become: false
   ansible.builtin.set_fact:
-    # npm_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
     npm_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
 
 - name: Get list of installed global npm packages
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    {% endif %}
     eval "$(fnm env --use-on-cd)"
     npm list -g --depth=0
   register: installed_packages
@@ -65,7 +80,11 @@
 
 - name: Install npm packages globally
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
+    {% endif %}
     eval "$(fnm env --use-on-cd)"
     npm install -g {{ item }}
   register: npm_install
