@@ -8,7 +8,11 @@
 
 - name: Evaluate rbenv init
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.rbenv/bin:$PATH"
+    {% endif %}
     eval "$(rbenv init -)"
     echo $PATH
   register: rbenv_path
@@ -24,7 +28,11 @@
 
 - name: Verify Ruby version
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.rbenv/bin:$PATH"
+    {% endif %}
     eval "$(rbenv init -)"
     ruby -v
   register: ruby_check
@@ -35,7 +43,11 @@
 
 - name: Check if gem is available
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.rbenv/bin:$PATH"
+    {% endif %}
     eval "$(rbenv init -)"
     which gem
   register: gem_check
@@ -58,12 +70,15 @@
 - name: Parse package list
   become: false
   ansible.builtin.set_fact:
-    # gem_packages: "{{ package_list.content | regex_replace('#.*$', '') | split('\n') | select('regex', '^\\S+$') | list }}"
     gem_packages: "{{ package_list.content.split('\n') | map('trim') | reject('search', '^#') | map('split', '#') | map('first') | map('trim') | reject('equalto', '') | list }}"
 
 - name: Get list of installed gems
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.rbenv/bin:$PATH"
+    {% endif %}
     eval "$(rbenv init -)"
     gem list --no-versions
   register: installed_gems
@@ -73,7 +88,11 @@
 
 - name: Install gems
   ansible.builtin.shell: |
+    {% if ansible_os_family == 'Darwin' %}
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    {% else %}
     export PATH="{{ ansible_env.HOME }}/.rbenv/bin:$PATH"
+    {% endif %}
     eval "$(rbenv init -)"
     gem install {{ item }}
   register: gem_install
