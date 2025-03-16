@@ -1,6 +1,8 @@
 ---
 - name: Verify Homebrew is installed
-  ansible.builtin.command: which brew
+  ansible.builtin.command: |
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    which brew
   register: brew_check
   changed_when: false
   failed_when: false
