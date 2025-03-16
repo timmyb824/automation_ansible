@@ -1,84 +1,79 @@
 ---
-- name: Install atuin on MacOS
-  community.general.homebrew:
-    name: atuin
-    state: present
+- name: Skip atuin installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping atuin installation on Darwin - managed through Homebrew"
   when: ansible_os_family == 'Darwin'
 
-- name: Check if cargo is available
-  command: which cargo
-  register: cargo_check
-  failed_when: false
-  changed_when: false
+- name: Install atuin on Linux
   when: ansible_os_family != 'Darwin'
+  block:
+    - name: Check if cargo is available
+      command: which cargo
+      register: cargo_check
+      failed_when: false
+      changed_when: false
 
-- name: Check if cargo env file exists
-  stat:
-    path: "{{ ansible_env.HOME }}/.cargo/env"
-  register: cargo_env_file
-  when: ansible_os_family != 'Darwin'
+    - name: Check if cargo env file exists
+      stat:
+        path: "{{ ansible_env.HOME }}/.cargo/env"
+      register: cargo_env_file
 
-- name: Source cargo environment
-  ansible.builtin.shell: source $HOME/.cargo/env && echo $PATH
-  args:
-    executable: /bin/bash
-  register: cargo_env
-  when:
-    - ansible_os_family != 'Darwin'
-    - cargo_check.rc != 0
-    - cargo_env_file.stat.exists
+    - name: Source cargo environment
+      ansible.builtin.shell: source $HOME/.cargo/env && echo $PATH
+      args:
+        executable: /bin/bash
+      register: cargo_env
+      when:
+        - cargo_check.rc != 0
+        - cargo_env_file.stat.exists
 
-- name: Update PATH for current session
-  ansible.builtin.set_fact:
-    ansible_env: "{{ ansible_env | combine({'PATH': ansible_env.HOME + '/.cargo/bin:' + ansible_env.PATH}) }}"
-  when: ansible_os_family != 'Darwin'
+    - name: Update PATH for current session
+      ansible.builtin.set_fact:
+        ansible_env: "{{ ansible_env | combine({'PATH': ansible_env.HOME + '/.cargo/bin:' + ansible_env.PATH}) }}"
 
-- name: Install atuin with cargo
-  ansible.builtin.shell: |
-    source $HOME/.cargo/env
-    cargo install atuin
-  args:
-    executable: /bin/bash
-  register: cargo_install
-  when:
-    - ansible_os_family != 'Darwin'
-    - atuin_install_method == 'cargo'
-    - cargo_check.rc == 0 or cargo_env is defined
-  changed_when: "'Installed' in cargo_install.stdout"
-  failed_when:
-    - cargo_install.rc != 0
-    - "'already exists' not in cargo_install.stderr"
+    - name: Install atuin with cargo
+      ansible.builtin.shell: |
+        source $HOME/.cargo/env
+        cargo install atuin
+      args:
+        executable: /bin/bash
+      register: cargo_install
+      when:
+        - atuin_install_method == 'cargo'
+        - cargo_check.rc == 0 or cargo_env is defined
+      changed_when: "'Installed' in cargo_install.stdout"
+      failed_when:
+        - cargo_install.rc != 0
+        - "'already exists' not in cargo_install.stderr"
 
-- name: Install atuin with official script on Linux
-  ansible.builtin.shell: curl -sS https://raw.githubusercontent.com/ellie/atuin/main/install.sh | bash
-  args:
-    creates: "/usr/local/bin/atuin"
-  when:
-    - ansible_os_family != 'Darwin'
-    - atuin_install_method == 'script'
-  become: true
+    - name: Install atuin with official script
+      ansible.builtin.shell: curl -sS https://raw.githubusercontent.com/ellie/atuin/main/install.sh | bash
+      args:
+        creates: "/usr/local/bin/atuin"
+      when: atuin_install_method == 'script'
+      become: true
 
 - name: Get current shell
   ansible.builtin.command: basename $SHELL
   register: shell_name
   changed_when: false
 
-- name: Set Homebrew paths for Darwin
+- name: Set Homebrew environment for Darwin
   when: ansible_os_family == 'Darwin'
   block:
-    - name: Get Homebrew prefix
-      ansible.builtin.command: brew --prefix
-      register: brew_prefix
+    - name: Initialize Homebrew environment
+      ansible.builtin.shell: eval "$(/opt/homebrew/bin/brew shellenv)" && echo $PATH
+      register: brew_env
       changed_when: false
 
     - name: Update PATH for Darwin
       ansible.builtin.set_fact:
-        brew_paths: "{{ brew_prefix.stdout }}/bin:{{ brew_prefix.stdout }}/sbin:{{ ansible_env.PATH }}"
+        brew_paths: "{{ brew_env.stdout }}"
 
 - name: Initialize atuin
   ansible.builtin.shell: |
     {% if ansible_os_family == 'Darwin' %}
-    export PATH="{{ brew_paths }}"
+    eval "$(/opt/homebrew/bin/brew shellenv)"
     {% else %}
     export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
     {% endif %}
@@ -91,7 +86,7 @@
 - name: Check atuin login status
   ansible.builtin.shell: |
     {% if ansible_os_family == 'Darwin' %}
-    export PATH="{{ brew_paths }}"
+    eval "$(/opt/homebrew/bin/brew shellenv)"
     {% else %}
     export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
     {% endif %}
@@ -115,7 +110,7 @@
   ansible.builtin.shell: |
     set -x  # Enable command tracing
     {% if ansible_os_family == 'Darwin' %}
-    export PATH="{{ brew_paths }}"
+    eval "$(/opt/homebrew/bin/brew shellenv)"
     {% else %}
     export PATH="{{ ansible_env.HOME }}/.cargo/bin:$PATH"
     {% endif %}
