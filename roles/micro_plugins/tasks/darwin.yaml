@@ -1,0 +1,31 @@
+---
+- name: Skip Micro installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping Micro installation on Darwin - managed through Homebrew"
+  when: micro_plugins_state != "absent"
+
+- name: Initialize Homebrew environment
+  ansible.builtin.shell: eval "$(/opt/homebrew/bin/brew shellenv)" && echo $PATH
+  register: brew_env
+  changed_when: false
+  when: micro_plugins_state != "absent"
+
+- name: Check if Micro is available
+  ansible.builtin.shell: |
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    which micro
+  register: micro_check
+  changed_when: false
+  failed_when: false
+  when: micro_plugins_state != "absent"
+
+- name: Fail if Micro is not installed
+  ansible.builtin.fail:
+    msg: "Micro editor could not be found. Please ensure it's installed via Homebrew."
+  when: micro_plugins_state != "absent" and micro_check.rc != 0
+
+# Uninstall tasks
+- name: Uninstall Micro
+  ansible.builtin.debug:
+    msg: "To uninstall Micro on Darwin, please remove it from your Brewfile and run 'brew bundle cleanup --force'"
+  when: micro_plugins_state == "absent"

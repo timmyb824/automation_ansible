@@ -1,0 +1,12 @@
+---
+- name: Check if Micro is installed
+  ansible.builtin.command: which micro
+  register: micro_check
+  changed_when: false
+  failed_when: false
+  when: micro_plugins_state != "absent"
+
+- name: Fail if Micro is not installed
+  ansible.builtin.fail:
+    msg: "Micro editor is not installed. Please ensure it's installed via your system package manager."
+  when: micro_plugins_state != "absent" and micro_check.rc != 0
