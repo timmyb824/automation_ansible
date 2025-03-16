@@ -1,84 +1,49 @@
 ---
 # Install tasks
-- name: Check if sops is installed
-  ansible.builtin.command: which sops
+- name: Skip sops and age installation on Darwin
+  ansible.builtin.debug:
+    msg: "Skipping sops and age installation on Darwin - managed through Homebrew"
+  when: (sops_state == "present" or age_state == "present")
+
+- name: Initialize Homebrew environment
+  ansible.builtin.shell: eval "$(/opt/homebrew/bin/brew shellenv)" && echo $PATH
+  register: brew_env
+  changed_when: false
+  when: (sops_state == "present" or age_state == "present")
+
+- name: Check if sops is available
+  ansible.builtin.shell: |
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    which sops
   register: sops_check
   changed_when: false
   failed_when: false
   when: sops_state == "present"
 
-- name: Check if age is installed
-  ansible.builtin.command: which age
+- name: Check if age is available
+  ansible.builtin.shell: |
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    which age
   register: age_check
   changed_when: false
   failed_when: false
   when: age_state == "present"
 
-- name: Download sops binary
+- name: Fail if sops is not installed
+  ansible.builtin.fail:
+    msg: "sops could not be found. Please ensure it's installed via Homebrew."
   when: sops_state == "present" and sops_check.rc != 0
-  ansible.builtin.get_url:
-    url: "https://github.com/mozilla/sops/releases/download/{{ sops_version }}/sops-{{ sops_version }}.darwin.arm64"
-    dest: "/tmp/sops-{{ sops_version }}.darwin.arm64"
-    mode: "0644"
 
-- name: Install sops binary
-  when: sops_state == "present" and sops_check.rc != 0
-  ansible.builtin.copy:
-    src: "/tmp/sops-{{ sops_version }}.darwin.arm64"
-    dest: "/usr/local/bin/sops"
-    mode: "0755"
-    remote_src: yes
-  become: true
-
-- name: Download age binary
+- name: Fail if age is not installed
+  ansible.builtin.fail:
+    msg: "age could not be found. Please ensure it's installed via Homebrew."
   when: age_state == "present" and age_check.rc != 0
-  ansible.builtin.get_url:
-    url: "https://github.com/FiloSottile/age/releases/download/{{ age_version }}/age-{{ age_version }}-darwin-arm64.tar.gz"
-    dest: "/tmp/age-{{ age_version }}-darwin-arm64.tar.gz"
-    mode: "0644"
-
-- name: Extract age archive
-  when: age_state == "present" and age_check.rc != 0
-  ansible.builtin.unarchive:
-    src: "/tmp/age-{{ age_version }}-darwin-arm64.tar.gz"
-    dest: /tmp
-    remote_src: yes
-
-- name: Install age binary
-  when: age_state == "present" and age_check.rc != 0
-  ansible.builtin.copy:
-    src: "/tmp/age/age"
-    dest: "/usr/local/bin/age"
-    mode: "0755"
-    remote_src: yes
-  become: true
 
 # Uninstall tasks
-- name: Check if sops exists
-  ansible.builtin.stat:
-    path: "/usr/local/bin/sops"
-  register: sops_binary
-  when: sops_state == "absent"
-
-- name: Remove sops binary
-  ansible.builtin.file:
-    path: "/usr/local/bin/sops"
-    state: absent
-  become: true
-  when: sops_state == "absent" and sops_binary.stat.exists | default(false)
-
-- name: Check if age exists
-  ansible.builtin.stat:
-    path: "/usr/local/bin/age"
-  register: age_binary
-  when: age_state == "absent"
-
-- name: Remove age binary
-  ansible.builtin.file:
-    path: "/usr/local/bin/age"
-    state: absent
-  become: true
-  when: age_state == "absent" and age_binary.stat.exists | default(false)
+- name: Uninstall sops and age
+  ansible.builtin.debug:
+    msg: "To uninstall sops and age on Darwin, please remove them from your Brewfile and run 'brew bundle cleanup --force'"
+  when: sops_state == "absent" or age_state == "absent"
 
 # Cleanup tasks
 - name: Clean up temporary files
