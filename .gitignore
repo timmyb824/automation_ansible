@@ -5,3 +5,4 @@ servers/Archive/
 .vault-pass
 .venv/
 AARCHIVE/
+.ansible/
