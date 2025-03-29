@@ -1,5 +1,4 @@
 ---
-# TODO: The 'uninstall' command is not actually supported yet.
 - name: Check if pkgx is installed
   ansible.builtin.command: which pkgx
   register: pkgx_check

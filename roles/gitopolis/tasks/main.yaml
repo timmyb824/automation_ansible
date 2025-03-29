@@ -12,7 +12,7 @@
     - gitopolis_state != 'absent'
   block:
     - name: Check if pkgm is available
-      command: which pkgm
+      ansible.builtin.command: which pkgm
       register: pkgm_check
       failed_when: false
       changed_when: false
