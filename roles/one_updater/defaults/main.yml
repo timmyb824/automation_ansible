@@ -1,0 +1,9 @@
+---
+# Path where to install the one-updater binary
+install_path: /usr/local/bin
+
+# Whether to run update command
+run_update: false
+
+# Whether to run upgrade command
+run_upgrade: false

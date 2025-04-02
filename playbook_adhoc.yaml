@@ -1,0 +1,9 @@
+---
+- name: This playbook file is used to run ad-hoc roles and tasks
+  hosts: all
+  become: true
+  roles:
+    - role: one_updater
+      vars:
+        run_update: true
+        run_upgrade: true

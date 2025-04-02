@@ -1,0 +1,71 @@
+---
+- name: Check if one-updater is installed
+  ansible.builtin.command: which one-updater
+  register: one_updater_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Get OS-specific variables
+  ansible.builtin.set_fact:
+    binary_name: "{% if ansible_architecture == 'arm64' %}one-updater-linux-arm64{% elif ansible_architecture == 'aarch64' %}one-updater-linux-arm64{% elif ansible_system == 'Darwin' %}one-updater-darwin{% else %}one-updater-linux{% endif %}"
+
+- name: Create temporary download directory
+  ansible.builtin.file:
+    path: "/tmp/one-updater"
+    state: directory
+
+- name: Download latest one-updater binary
+  ansible.builtin.get_url:
+    url: "https://github.com/timmyb824/one-updater/releases/download/latest/{{ binary_name }}"
+    dest: "/tmp/one-updater/{{ binary_name }}"
+    mode: "0755"
+    force: true
+
+- name: Move binary to user's path
+  ansible.builtin.copy:
+    src: "/tmp/one-updater/{{ binary_name }}"
+    dest: "{{ install_path | default('/usr/local/bin') }}/one-updater"
+    mode: "0755"
+    remote_src: true
+  become: true
+
+- name: Clean up temporary files
+  ansible.builtin.file:
+    path: "/tmp/one-updater"
+    state: absent
+
+- name: Verify one-updater is working
+  ansible.builtin.command: one-updater version
+  register: version_check
+  changed_when: false
+  failed_when: false
+
+- name: Ensure config directory exists
+  ansible.builtin.file:
+    path: "{{ ansible_env.HOME }}/.config/one-updater"
+    state: directory
+  when: version_check.rc == 0
+
+- name: Check if config file exists
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/.config/one-updater/config.yaml"
+  register: config_check
+  when: version_check.rc == 0
+
+- name: Initialize one-updater if no config exists
+  ansible.builtin.command: one-updater init
+  when:
+    - version_check.rc == 0
+    - not config_check.stat.exists | default(true)
+
+- name: Run one-updater update
+  ansible.builtin.command: one-updater update
+  when:
+    - version_check.rc == 0
+    - run_update | default(false) | bool
+
+- name: Run one-updater upgrade
+  ansible.builtin.command: one-updater upgrade
+  when:
+    - version_check.rc == 0
+    - run_upgrade | default(false) | bool
