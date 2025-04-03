@@ -165,3 +165,8 @@
       gitopolis_state: present
       gitopolis_config_path: "{{ ansible_env.HOME }}/DEV/homelab"
       tags: [gitopolis, git]
+
+    - role: one_updater
+      run_update: true
+      run_upgrade: true
+      tags: [one_updater, package_managers]
