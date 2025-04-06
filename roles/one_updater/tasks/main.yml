@@ -1,71 +1,107 @@
 ---
-- name: Check if one-updater is installed
+- name: Check if one-updater is installed (system path)
   ansible.builtin.command: which one-updater
-  register: one_updater_check
+  register: one_updater_check_system
   ignore_errors: true
   changed_when: false
 
-- name: Get OS-specific variables
+- name: Check if one-updater is installed (uv path)
+  ansible.builtin.stat:
+    path: "{{ ansible_env.HOME }}/.local/bin/one-updater"
+  register: one_updater_check_uv
+
+- name: Set one-updater installation status
   ansible.builtin.set_fact:
-    binary_name: "{% if ansible_architecture == 'arm64' %}one-updater-linux-arm64{% elif ansible_architecture == 'aarch64' %}one-updater-linux-arm64{% elif ansible_system == 'Darwin' %}one-updater-darwin{% else %}one-updater-linux{% endif %}"
+    one_updater_installed: "{{ one_updater_check_system.rc == 0 or one_updater_check_uv.stat.exists | default(false) }}"
 
-- name: Create temporary download directory
-  ansible.builtin.file:
-    path: "/tmp/one-updater"
-    state: directory
+- name: Display Darwin installation message
+  ansible.builtin.debug:
+    msg: "Please install one-updater using uv: 'uv tool install one-updater'"
+  when:
+    - ansible_system == 'Darwin'
+    - not one_updater_installed
 
-- name: Download latest one-updater binary
-  ansible.builtin.get_url:
-    url: "https://github.com/timmyb824/one-updater/releases/download/latest/{{ binary_name }}"
-    dest: "/tmp/one-updater/{{ binary_name }}"
-    mode: "0755"
-    force: true
+- name: Install uv if needed
+  when:
+    - not one_updater_installed
+    - ansible_system == 'Linux'
+  block:
+    - name: Install uv
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+      args:
+        creates: "{{ ansible_env.HOME }}/.local/bin/uv"
+        executable: /bin/bash
+      register: uv_install
+      changed_when: uv_install.rc == 0
 
-- name: Move binary to user's path
-  ansible.builtin.copy:
-    src: "/tmp/one-updater/{{ binary_name }}"
-    dest: "{{ install_path | default('/usr/local/bin') }}/one-updater"
-    mode: "0755"
-    remote_src: true
-  become: true
+    - name: Verify uv installation
+      ansible.builtin.stat:
+        path: "{{ ansible_env.HOME }}/.local/bin/uv"
+      register: uv_check
+      failed_when: not uv_check.stat.exists
 
-- name: Clean up temporary files
-  ansible.builtin.file:
-    path: "/tmp/one-updater"
-    state: absent
+    - name: Install one-updater via uv
+      ansible.builtin.shell: |
+        export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+        uv tool install one-updater
+      args:
+        executable: /bin/bash
+      register: one_updater_install
+      changed_when: one_updater_install.rc == 0
+      when: uv_check.stat.exists
 
-- name: Verify one-updater is working
-  ansible.builtin.command: one-updater version
-  register: version_check
-  changed_when: false
-  failed_when: false
+- name: Set installation success fact
+  ansible.builtin.set_fact:
+    install_success: "{{ one_updater_installed or (one_updater_install.changed | default(false)) }}"
 
 - name: Ensure config directory exists
   ansible.builtin.file:
     path: "{{ ansible_env.HOME }}/.config/one-updater"
     state: directory
-  when: version_check.rc == 0
+  when: install_success
 
 - name: Check if config file exists
   ansible.builtin.stat:
     path: "{{ ansible_env.HOME }}/.config/one-updater/config.yaml"
   register: config_check
-  when: version_check.rc == 0
+  when: install_success
 
 - name: Initialize one-updater if no config exists
-  ansible.builtin.command: one-updater init
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+    one-updater init
+  args:
+    executable: /bin/bash
   when:
-    - version_check.rc == 0
+    - install_success
     - not config_check.stat.exists | default(true)
+  changed_when: false
 
 - name: Run one-updater update
-  ansible.builtin.command: one-updater update
+  become: true
+  become_user: "{{ ansible_user_id }}"
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+    one-updater update
+  args:
+    executable: /bin/bash
   when:
-    - version_check.rc == 0
+    - install_success
     - run_update | default(false) | bool
+  changed_when: false
 
 - name: Run one-updater upgrade
-  ansible.builtin.command: one-updater upgrade
+  become: true
+  become_user: "{{ ansible_user_id }}"
+  ansible.builtin.shell: |
+    export PATH="{{ ansible_env.HOME }}/.local/bin:$PATH"
+    one-updater upgrade
+  args:
+    executable: /bin/bash
   when:
-    - version_check.rc == 0
+    - install_success
     - run_upgrade | default(false) | bool
+  changed_when: false

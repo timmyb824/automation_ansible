@@ -1,0 +1,53 @@
+---
+- name: Update and upgrade packages across different package managers
+  hosts: all
+
+  tasks:
+    # Debian/Ubuntu systems
+    - name: Update and upgrade apt packages
+      when: ansible_distribution in ["Ubuntu", "Debian"]
+      block:
+        - name: Update apt cache
+          become: true
+          ansible.builtin.apt:
+            update_cache: true
+            cache_valid_time: 86400 # One day
+
+        - name: Upgrade apt packages
+          become: true
+          ansible.builtin.apt:
+            upgrade: true
+            update_cache: false
+
+    # RedHat family systems
+    - name: Update and upgrade yum packages
+      when: ansible_os_family == "RedHat"
+      block:
+        - name: Update yum cache
+          become: true
+          ansible.builtin.yum:
+            update_cache: true
+
+        - name: Upgrade yum packages
+          become: true
+          ansible.builtin.yum:
+            name: "*"
+            state: latest
+
+    # Darwin (macOS) systems
+    - name: Update and upgrade Homebrew packages
+      when: ansible_system == "Darwin"
+      block:
+        - name: Update Homebrew
+          ansible.builtin.command: brew update
+          register: brew_update
+          changed_when: brew_update.rc == 0
+          environment:
+            PATH: "/opt/homebrew/bin:/usr/local/bin:{{ ansible_env.PATH }}"
+
+        - name: Upgrade Homebrew packages
+          ansible.builtin.command: brew upgrade
+          register: brew_upgrade
+          changed_when: brew_upgrade.rc == 0
+          environment:
+            PATH: "/opt/homebrew/bin:/usr/local/bin:{{ ansible_env.PATH }}"
