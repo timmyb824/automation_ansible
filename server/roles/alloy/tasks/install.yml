@@ -1,0 +1,64 @@
+---
+- name: Alloy | Install dependencies
+  apt:
+    name: gpg
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Alloy | Add Grafana GPG key
+  apt_key:
+    url: https://apt.grafana.com/gpg.key
+    keyring: /etc/apt/keyrings/grafana.gpg
+    state: present
+  become: true
+
+- name: Alloy | Add Grafana repository
+  apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main"
+    filename: grafana
+    state: present
+  become: true
+
+- name: Alloy | Install alloy
+  apt:
+    name: alloy
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Alloy | Ensure /etc/alloy exists
+  file:
+    path: /etc/alloy
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+
+- name: Alloy | Deploy config.alloy
+  template:
+    src: config.alloy.j2
+    dest: /etc/alloy/config.alloy
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: Restart alloy
+
+- name: Alloy | Deploy /etc/default/alloy
+  template:
+    src: default_alloy.j2
+    dest: /etc/default/alloy
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: Restart alloy
+
+- name: Alloy | Ensure alloy service is enabled and started
+  service:
+    name: alloy
+    enabled: yes
+    state: started
+  become: true

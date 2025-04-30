@@ -1,0 +1,41 @@
+local.file_match "system" {
+    path_targets = [{
+        __address__ = "localhost",
+        __path__    = "/var/log/syslog",
+        job         = "syslog",
+    }]
+}
+
+loki.source.file "system" {
+    targets               = local.file_match.system.targets
+    forward_to            = [loki.write.default.receiver]
+    legacy_positions_file = "/tmp/positions.yaml"
+}
+
+discovery.relabel "journal" {
+    targets = []
+
+    rule {
+        source_labels = ["__journal__systemd_unit"]
+        target_label  = "unit"
+    }
+}
+
+loki.source.journal "journal" {
+    max_age       = "12h0m0s"
+    path          = "/var/log/journal"
+    relabel_rules = discovery.relabel.journal.rules
+    forward_to    = [loki.write.default.receiver]
+    labels        = {
+        job = "systemd-journal",
+    }
+}
+
+loki.write "default" {
+    endpoint {
+        url = "{{ loki_url }}"
+    }
+    external_labels = {
+        host = "{{ ansible_hostname }}",
+    }
+}

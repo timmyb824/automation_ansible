@@ -1,0 +1,12 @@
+---
+- name: Alloy | Update package cache
+  apt:
+    update_cache: yes
+  become: true
+
+- name: Alloy | Upgrade alloy
+  apt:
+    name: alloy
+    state: latest
+  become: true
+  notify: Restart alloy

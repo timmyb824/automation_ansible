@@ -1,0 +1,32 @@
+---
+- name: Alloy | Stop alloy service
+  service:
+    name: alloy
+    state: stopped
+    enabled: no
+  ignore_errors: yes
+  become: true
+
+- name: Alloy | Remove alloy package
+  apt:
+    name: alloy
+    state: absent
+    purge: yes
+  become: true
+
+- name: Alloy | Remove /etc/alloy directory
+  file:
+    path: /etc/alloy
+    state: absent
+  become: true
+
+- name: Alloy | Remove /etc/default/alloy
+  file:
+    path: /etc/default/alloy
+    state: absent
+  become: true
+
+- name: Alloy | Autoremove unused packages
+  apt:
+    autoremove: yes
+  become: true
