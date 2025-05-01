@@ -1,4 +1,0 @@
----
-# Main entry for alloy role. Dispatches to install, update, or uninstall.
-- name: Alloy | Ensure state is correct
-  include_tasks: "{{ alloy_state | default('present') }}.yml"

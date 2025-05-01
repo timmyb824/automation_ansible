@@ -10,7 +10,7 @@
 CONFIG_FILE="/etc/alloy/config.alloy"
 
 # User-defined arguments to pass to the run command.
-CUSTOM_ARGS="{{ custom_args | default('') }}"
+CUSTOM_ARGS="{{ alloy_custom_args | default('') }}"
 
 # Restart on system upgrade. Defaults to true.
 RESTART_ON_UPGRADE=true

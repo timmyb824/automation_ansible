@@ -1,11 +1,11 @@
 ---
 - name: Alloy | Update package cache
-  apt:
-    update_cache: yes
+  ansible.builtin.apt:
+    update_cache: true
   become: true
 
 - name: Alloy | Upgrade alloy
-  apt:
+  ansible.builtin.apt:
     name: alloy
     state: latest
   become: true

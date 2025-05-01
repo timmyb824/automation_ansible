@@ -1,0 +1,11 @@
+---
+- name: Map alloy_state to task file
+  ansible.builtin.set_fact:
+    alloy_task_file: >-
+      {{ 'install.yaml' if alloy_state == 'present'
+         else 'update.yaml' if alloy_state == 'latest'
+         else 'uninstall.yaml' if alloy_state == 'absent'
+         else 'install.yaml' }}
+
+- name: Alloy | Ensure state is correct
+  ansible.builtin.include_tasks: "{{ alloy_task_file }}"

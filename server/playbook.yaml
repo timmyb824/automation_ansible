@@ -1,0 +1,11 @@
+---
+- name: Provision Linux Server
+  hosts: all
+  become: true
+  gather_facts: true
+  roles:
+    - role: alloy
+      alloy_loki_url: "https://loki.local.timmybtech.com:3100"
+      alloy_custom_args: "--server.http.listen-addr=0.0.0.0:12345"
+      alloy_state: absent # or latest/absent
+      tags: [alloy, monitoring, logging]

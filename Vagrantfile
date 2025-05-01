@@ -28,10 +28,10 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.provision "ansible" do |ansible|
-    ansible.playbook = "initial_setup.yaml"
+    ansible.playbook = "./dev/init_playbook.yaml"
     ansible.raw_arguments = [
-      "-i", "inventory_root.yaml",
-      "-e", "@roles/user_setup/vars/vault.yaml",
+      "-i", "./inventory/vagrant.yaml",
+      "-e", "@dev/roles/user_setup/vars/vault.yaml",
       "--ask-vault-pass",
     ]
   end

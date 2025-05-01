@@ -33,7 +33,7 @@ loki.source.journal "journal" {
 
 loki.write "default" {
     endpoint {
-        url = "{{ loki_url }}"
+        url = "{{ alloy_loki_url }}"
     }
     external_labels = {
         host = "{{ ansible_hostname }}",
