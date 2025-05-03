@@ -9,7 +9,7 @@
 #   register: user_check
 #   ignore_errors: true
 
-# clearner message
+# cleaner message
 - name: Check if users exist
   ansible.builtin.command: "id {{ item }}"
   loop:

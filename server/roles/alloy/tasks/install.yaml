@@ -56,6 +56,11 @@
   become: true
   notify: Restart alloy
 
+- name: Reload systemd manager configuration
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true
+
 - name: Alloy | Ensure alloy service is enabled and started
   ansible.builtin.service:
     name: alloy

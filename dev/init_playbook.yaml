@@ -4,9 +4,11 @@
   become: true
   roles:
     - role: dns_config
+      tags: [dns_config, vagrant]
 
 - name: Initial user setup
   hosts: all
   become: true
   roles:
     - role: user_setup
+      tags: [user_setup, vagrant]

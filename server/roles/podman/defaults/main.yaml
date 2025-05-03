@@ -1,0 +1,8 @@
+---
+podman_state: present # present | absent | latest
+podman_compose_manage: true
+podman_symlink_docker: false
+podman_privileged_port: 80
+podman_ubuntu_release: "jammy"
+podman_ubuntu_series: "22.04"
+podman_user: "{{ ansible_user | default(lookup('env', 'USER')) }}"

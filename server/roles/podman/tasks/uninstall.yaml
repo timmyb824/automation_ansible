@@ -1,0 +1,66 @@
+---
+- name: Podman | Stop user podman services
+  ansible.builtin.command: systemctl --user stop podman.socket podman.service
+  become: false
+  ignore_errors: true
+
+- name: Podman | Stop root podman services
+  ansible.builtin.command: sudo systemctl stop podman.socket podman.service
+  become: true
+  ignore_errors: true
+
+- name: Podman | Remove podman and plugins
+  ansible.builtin.apt:
+    name: podman
+    state: absent
+    purge: true
+  become: true
+
+- name: Podman | Remove repo
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+    state: absent
+  become: true
+
+- name: Podman | Remove GPG key
+  ansible.builtin.file:
+    path: /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg
+    state: absent
+  become: true
+
+- name: Podman | Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+  become: true
+
+- name: Podman | Remove podman-compose (if uv present)
+  ansible.builtin.command: |
+    export PATH="/home/{{ podman_user }}/.local/bin:$PATH"
+    uv tool uninstall podman-compose
+  when: podman_compose_manage
+  become: true
+  ignore_errors: true
+
+- name: Podman | Remove user config dir
+  ansible.builtin.file:
+    path: "/home/{{ podman_user }}/.config/containers"
+    state: absent
+  become: true
+
+- name: Podman | Disable lingering for user
+  ansible.builtin.command: loginctl disable-linger {{ podman_user }}
+  become: true
+  ignore_errors: true
+
+- name: Podman | Remove sysctl config
+  ansible.builtin.file:
+    path: /etc/sysctl.d/podman-privileged-ports.conf
+    state: absent
+  become: true
+
+- name: Podman | Remove docker.sock symlink
+  ansible.builtin.file:
+    path: /var/run/docker.sock
+    state: absent
+  become: true
+  ignore_errors: true

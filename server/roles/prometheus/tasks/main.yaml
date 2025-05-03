@@ -1,0 +1,4 @@
+---
+- name: Prometheus | Upgrade
+  ansible.builtin.include_tasks: upgrade.yaml
+  when: prometheus_upgrade_enabled

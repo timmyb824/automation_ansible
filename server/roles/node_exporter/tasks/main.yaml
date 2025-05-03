@@ -1,0 +1,10 @@
+---
+- name: Map node_exporter_state to task file
+  ansible.builtin.set_fact:
+    node_exporter_task_file: >-
+      {{ 'install.yaml' if node_exporter_state == 'present' or node_exporter_state == 'latest'
+         else 'uninstall.yaml' if node_exporter_state == 'absent'
+         else 'install.yaml' }}
+
+- name: Node Exporter | Ensure state is correct
+  ansible.builtin.include_tasks: "{{ node_exporter_task_file }}"

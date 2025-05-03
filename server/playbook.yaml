@@ -7,5 +7,22 @@
     - role: alloy
       alloy_loki_url: "https://loki.local.timmybtech.com:3100"
       alloy_custom_args: "--server.http.listen-addr=0.0.0.0:12345"
-      alloy_state: absent # or latest/absent
+      alloy_state: present # or latest/absent
       tags: [alloy, monitoring, logging]
+
+    - role: node_exporter
+      node_exporter_version: "1.9.1"
+      node_exporter_state: present # or latest/absent
+      tags: [node_exporter, monitoring]
+
+    - role: podman
+      podman_state: present # or latest/absent
+      podman_symlink_docker: false
+      tags: [podman, containers]
+
+- name: Upgrade Prometheus
+  hosts: prometheus
+  become: true
+  roles:
+    - role: prometheus
+      tags: [prometheus, upgrade]

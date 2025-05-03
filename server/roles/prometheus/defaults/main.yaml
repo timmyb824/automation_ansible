@@ -1,0 +1,6 @@
+---
+prometheus_bin_dir: "/usr/local/bin"
+prometheus_service_name: "prometheus"
+prometheus_tmp_dir: "/tmp/prometheus_update"
+prometheus_backup_dir: "/usr/local/bin/backup_prometheus_{{ prometheus_current_version }}"
+prometheus_upgrade_enabled: true

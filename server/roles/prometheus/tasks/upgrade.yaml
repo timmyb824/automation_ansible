@@ -1,0 +1,125 @@
+---
+- name: Ensure required dependencies are installed
+  ansible.builtin.apt:
+    name:
+      - curl
+      - sudo
+      - mc
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Get current Prometheus version
+  ansible.builtin.command: "{{ prometheus_bin_dir }}/prometheus --version"
+  register: prometheus_version_out
+  failed_when: false
+  changed_when: false
+
+- name: Set current Prometheus version fact
+  ansible.builtin.set_fact:
+    prometheus_current_version: '{{ (prometheus_version_out.stdout_lines[0] | regex_search("([0-9]+\.[0-9]+\.[0-9]+)")) if prometheus_version_out.stdout_lines else "" }}'
+
+- name: Get latest Prometheus version from GitHub
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/prometheus/prometheus/releases/latest
+    return_content: true
+  register: prometheus_github_release
+
+- name: Set latest Prometheus version fact
+  ansible.builtin.set_fact:
+    prometheus_latest_version: "{{ prometheus_github_release.json.tag_name | regex_replace('^v', '') }}"
+
+- name: Check if Prometheus is up to date
+  ansible.builtin.debug:
+    msg: "Prometheus is already up to date (version {{ prometheus_current_version }})"
+  when: prometheus_current_version == prometheus_latest_version
+
+- name: End play if already up to date
+  ansible.builtin.meta: end_play
+  when: prometheus_current_version == prometheus_latest_version
+
+- name: Stop Prometheus service
+  ansible.builtin.service:
+    name: "{{ prometheus_service_name }}"
+    state: stopped
+  become: true
+
+- name: Create backup directory for Prometheus binaries
+  ansible.builtin.file:
+    path: "/usr/local/bin/backup_prometheus_{{ prometheus_current_version }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Backup prometheus binary
+  ansible.builtin.copy:
+    src: "{{ prometheus_bin_dir }}/prometheus"
+    dest: "/usr/local/bin/backup_prometheus_{{ prometheus_current_version }}/prometheus"
+    remote_src: true
+    mode: "0755"
+  become: true
+  ignore_errors: true
+
+- name: Backup promtool binary
+  ansible.builtin.copy:
+    src: "{{ prometheus_bin_dir }}/promtool"
+    dest: "/usr/local/bin/backup_prometheus_{{ prometheus_current_version }}/promtool"
+    remote_src: true
+    mode: "0755"
+  become: true
+  ignore_errors: true
+
+- name: Create temp directory for update
+  ansible.builtin.file:
+    path: "{{ prometheus_tmp_dir }}"
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Download latest Prometheus tarball
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_latest_version }}/prometheus-{{ prometheus_latest_version }}.linux-amd64.tar.gz"
+    dest: "{{ prometheus_tmp_dir }}/prometheus-{{ prometheus_latest_version }}.linux-amd64.tar.gz"
+    mode: "0644"
+  become: true
+
+- name: Extract Prometheus tarball
+  ansible.builtin.unarchive:
+    src: "{{ prometheus_tmp_dir }}/prometheus-{{ prometheus_latest_version }}.linux-amd64.tar.gz"
+    dest: "{{ prometheus_tmp_dir }}"
+    remote_src: true
+  become: true
+
+- name: Replace old binaries with new ones
+  ansible.builtin.command: >
+    mv {{ prometheus_tmp_dir }}/prometheus-{{ prometheus_latest_version }}.linux-amd64/prometheus \
+       {{ prometheus_tmp_dir }}/prometheus-{{ prometheus_latest_version }}.linux-amd64/promtool \
+       {{ prometheus_bin_dir }}/
+  become: true
+
+- name: Start Prometheus service
+  ansible.builtin.service:
+    name: "{{ prometheus_service_name }}"
+    state: started
+  become: true
+
+- name: Get installed Prometheus version
+  ansible.builtin.command: "{{ prometheus_bin_dir }}/prometheus --version"
+  register: prometheus_installed_version_out
+  changed_when: false
+  failed_when: false
+
+- name: Set installed Prometheus version fact
+  ansible.builtin.set_fact:
+    prometheus_installed_version: '{{ (prometheus_installed_version_out.stdout_lines[0] | regex_search("([0-9]+\.[0-9]+\.[0-9]+)")) if prometheus_installed_version_out.stdout_lines else "" }}'
+
+- name: Fail if Prometheus did not update successfully
+  ansible.builtin.fail:
+    msg: "Failed to update Prometheus to version {{ prometheus_latest_version }} (installed: {{ prometheus_installed_version }})"
+  when: prometheus_installed_version != prometheus_latest_version
+
+- name: Clean up temp update directory
+  ansible.builtin.file:
+    path: "{{ prometheus_tmp_dir }}"
+    state: absent
+  become: true

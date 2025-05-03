@@ -101,10 +101,10 @@
       localsend_state: present
       tags: [localsend, file_sharing]
 
-    # - role: tailscale
-    #   tailscale_state: present
-    #   tailscale_authkey: "{{ tailscale_secrets.authkey }}"
-    #   tags: [tailscale, networking]
+    - role: tailscale
+      tailscale_state: present
+      tailscale_authkey: "{{ tailscale_secrets.authkey }}"
+      tags: [tailscale, networking]
 
     - role: go_packages
       go_packages_state: present

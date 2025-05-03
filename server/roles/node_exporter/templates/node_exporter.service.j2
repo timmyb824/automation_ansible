@@ -1,0 +1,12 @@
+[Unit]
+Description=Node Exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart={{ node_exporter_install_dir }}/node_exporter
+User={{ node_exporter_user }}
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

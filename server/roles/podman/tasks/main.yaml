@@ -1,0 +1,11 @@
+---
+- name: Map podman_state to task file
+  ansible.builtin.set_fact:
+    podman_task_file: >-
+      {{ 'install.yaml' if podman_state == 'present'
+         else 'update.yaml' if podman_state == 'latest'
+         else 'uninstall.yaml' if podman_state == 'absent'
+         else 'install.yaml' }}
+
+- name: Podman | Ensure state is correct
+  ansible.builtin.include_tasks: "{{ podman_task_file }}"

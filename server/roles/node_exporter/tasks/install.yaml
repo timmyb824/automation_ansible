@@ -1,0 +1,68 @@
+---
+- name: Node Exporter | Ensure user exists
+  ansible.builtin.user:
+    name: "{{ node_exporter_user }}"
+    shell: /bin/false
+    system: true
+    create_home: false
+  become: true
+
+- name: Node Exporter | Download archive
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.{{ node_exporter_os }}-{{ node_exporter_arch }}.tar.gz"
+    dest: /tmp/node_exporter.tar.gz
+    mode: "0644"
+  become: true
+
+- name: Node Exporter | Extract archive
+  ansible.builtin.unarchive:
+    src: /tmp/node_exporter.tar.gz
+    dest: /tmp/
+    remote_src: true
+  become: true
+
+- name: Node Exporter | Move binary to install dir
+  ansible.builtin.copy:
+    src: "/tmp/node_exporter-{{ node_exporter_version }}.{{ node_exporter_os }}-{{ node_exporter_arch }}/node_exporter"
+    dest: "{{ node_exporter_install_dir }}/node_exporter"
+    owner: "{{ node_exporter_user }}"
+    group: "{{ node_exporter_user }}"
+    mode: "0755"
+    remote_src: true
+    force: true
+  become: true
+  notify: Restart node_exporter
+
+- name: Node Exporter | Cleanup extracted files
+  ansible.builtin.file:
+    path: "/tmp/node_exporter-{{ node_exporter_version }}.{{ node_exporter_os }}-{{ node_exporter_arch }}"
+    state: absent
+  become: true
+
+- name: Node Exporter | Cleanup archive
+  ansible.builtin.file:
+    path: /tmp/node_exporter.tar.gz
+    state: absent
+  become: true
+
+- name: Node Exporter | Deploy systemd service
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  notify: Restart node_exporter
+
+- name: Node Exporter | Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  become: true
+
+- name: Node Exporter | Enable and start service
+  ansible.builtin.service:
+    name: node_exporter
+    enabled: true
+    state: started
+  become: true
